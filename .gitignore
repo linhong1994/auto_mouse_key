@@ -1,3 +1,4 @@
 /.arts
 /.codeartsdoer
 /.venv
+**/__pycache__/
