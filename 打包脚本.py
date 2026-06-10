@@ -5,9 +5,9 @@ import os
 src目录 = os.path.join(项目目录, "src")
 
 PyInstaller.__main__.run([
-    os.path.join(src目录, "main.py"),
+    os.path.join(项目目录, "main.py"),
     "--name=自动操作工具",
-    f"--paths={src目录}",
+    f"--paths={项目目录}",
     "--windowed",
     "--onefile",
     "--noconfirm",
@@ -20,7 +20,7 @@ PyInstaller.__main__.run([
     "--hidden-import=APScheduler",
     "--hidden-import=pyperclip",
     "--hidden-import=PIL",
-    f"--distpath={os.path.join(项目目录, 'dist')}",
+    f"--distpath={项目目录}",
     f"--workpath={os.path.join(项目目录, 'build')}",
     f"--specpath={项目目录}",
 ])
