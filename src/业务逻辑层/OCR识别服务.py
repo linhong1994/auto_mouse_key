@@ -1,4 +1,5 @@
 import time
+import os
 from datetime import datetime
 from PIL import ImageGrab
 from src.公共.数据结构 import OCR识别结果, 文字行信息, OCR识别记录
@@ -7,7 +8,7 @@ from src.公共.日志管理 import 获取日志管理器
 
 
 class OCR识别服务类:
-    """OCR文字识别服务，负责屏幕区域截图与文字识别"""
+    """OCR文字识别服务，基于RapidOCR引擎，负责屏幕区域截图与文字识别"""
 
     def __init__(self, 配置DAO=None):
         self.配置DAO = 配置DAO
@@ -18,12 +19,14 @@ class OCR识别服务类:
         self._初始化引擎()
 
     def _初始化引擎(self) -> None:
-        """初始化PaddleOCR引擎"""
+        """初始化RapidOCR引擎"""
         try:
-            from paddleocr import PaddleOCR
-            self.引擎 = PaddleOCR(use_angle_cls=True, lang="ch")
+            模型目录 = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "rapidocr")
+            os.makedirs(模型目录, exist_ok=True)
+            from rapidocr import RapidOCR
+            self.引擎 = RapidOCR(model_path_dir=模型目录)
             self.引擎可用 = True
-            self.日志.info("OCR引擎初始化成功")
+            self.日志.info("OCR引擎初始化成功（RapidOCR）")
         except Exception as 异常:
             self.引擎可用 = False
             self.日志.warning(f"OCR引擎初始化失败，OCR功能不可用: {异常}")
@@ -32,7 +35,7 @@ class OCR识别服务类:
                  识别语言: str = "中文简体+英文", 精度: str = "标准精度") -> OCR识别结果:
         """对指定屏幕区域执行OCR文字识别"""
         if not self.引擎可用:
-            raise OCR引擎异常("OCR引擎不可用，请检查PaddleOCR安装")
+            raise OCR引擎异常("OCR引擎不可用，请检查RapidOCR安装")
         区域坐标 = self._校验识别区域((左上角X, 左上角Y, 右下角X, 右下角Y))
         开始时间 = time.perf_counter()
         try:
@@ -80,18 +83,18 @@ class OCR识别服务类:
         return ImageGrab.grab(bbox=(左上角X, 左上角Y, 右下角X, 右下角Y))
 
     def _调用引擎识别(self, 图像, 语言配置: str) -> OCR识别结果:
-        """调用OCR识别引擎执行识别"""
+        """调用RapidOCR引擎执行识别"""
         if not self.引擎可用:
             raise OCR引擎异常("OCR引擎不可用")
         try:
-            引擎结果 = self.引擎.ocr(图像, cls=True)
+            引擎结果, _ = self.引擎(图像)
             文字行列表 = []
             全部文本 = []
             置信度总和 = 0.0
             行数 = 0
-            if 引擎结果 and 引擎结果[0]:
-                for 行数据 in 引擎结果[0]:
-                    坐标, (文本, 置信度) = 行数据
+            if 引擎结果:
+                for 行数据 in 引擎结果:
+                    坐标, 文本, 置信度 = 行数据
                     全部文本.append(文本)
                     置信度总和 += 置信度
                     行数 += 1

@@ -22,7 +22,7 @@
 - pyautogui（鼠标/键盘操作）
 - pynput（事件监听/录制）
 - keyboard（全局热键）
-- PaddleOCR（OCR文字识别）
+- RapidOCR（OCR文字识别，基于ONNX Runtime）
 - APScheduler（定时调度）
 - pyperclip（剪贴板操作）
 
@@ -49,7 +49,8 @@
 ├── data/                # 数据目录（运行时自动创建）
 │   ├── auto_mouse_key.db   # 数据库文件
 │   ├── backups/            # 数据库备份
-│   └── logs/               # 日志文件
+│   ├── logs/               # 日志文件
+│   └── rapidocr/           # OCR模型缓存
 ├── src/
 │   ├── 公共/             # 枚举定义、异常定义、数据结构、日志管理
 │   ├── 数据访问层/        # 数据库管理器、DAO层、JSON序列化器

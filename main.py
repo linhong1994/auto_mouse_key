@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
+
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt
 from src.数据访问层.数据库管理器 import 数据库管理器类
