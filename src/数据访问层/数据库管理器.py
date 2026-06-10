@@ -28,7 +28,7 @@ class 数据库管理器类:
         self.备份数据库()
 
         try:
-            self.连接 = sqlite3.connect(数据库路径)
+            self.连接 = sqlite3.connect(数据库路径, check_same_thread=False)
             self.连接.execute("PRAGMA foreign_keys = ON")
             self.连接.execute("PRAGMA journal_mode = WAL")
             self.连接.row_factory = sqlite3.Row
