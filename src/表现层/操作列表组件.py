@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget,
-    QTreeWidgetItem, QPushButton, QComboBox, QMessageBox,
+    QWidget, QVBoxLayout, QTreeWidget,
+    QTreeWidgetItem, QMenu, QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal
 from src.公共.数据结构 import 操作步骤数据
@@ -27,28 +27,6 @@ class 操作列表组件类(QWidget):
         """初始化界面"""
         布局 = QVBoxLayout(self)
 
-        工具栏布局 = QHBoxLayout()
-        self.添加类型选择 = QComboBox()
-        for 操作类型 in 操作类型枚举:
-            self.添加类型选择.addItem(操作类型.value)
-        工具栏布局.addWidget(self.添加类型选择)
-        添加按钮 = QPushButton("添加")
-        添加按钮.clicked.connect(self._处理添加)
-        工具栏布局.addWidget(添加按钮)
-        删除按钮 = QPushButton("删除")
-        删除按钮.clicked.connect(self._处理删除)
-        工具栏布局.addWidget(删除按钮)
-        上移按钮 = QPushButton("上移")
-        上移按钮.clicked.connect(self._处理上移)
-        工具栏布局.addWidget(上移按钮)
-        下移按钮 = QPushButton("下移")
-        下移按钮.clicked.connect(self._处理下移)
-        工具栏布局.addWidget(下移按钮)
-        复制按钮 = QPushButton("复制")
-        复制按钮.clicked.connect(self._处理复制)
-        工具栏布局.addWidget(复制按钮)
-        布局.addLayout(工具栏布局)
-
         self.步骤树 = QTreeWidget()
         self.步骤树.setHeaderLabels(["序号", "操作类型", "参数摘要", "延时(ms)"])
         self.步骤树.setColumnWidth(0, 40)
@@ -57,6 +35,8 @@ class 操作列表组件类(QWidget):
         self.步骤树.setColumnWidth(3, 60)
         self.步骤树.itemClicked.connect(self._处理步骤选中)
         self.步骤树.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
+        self.步骤树.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.步骤树.customContextMenuRequested.connect(self._显示右键菜单)
         布局.addWidget(self.步骤树)
 
     def 加载脚本步骤(self, 脚本标识: int) -> None:
@@ -102,34 +82,29 @@ class 操作列表组件类(QWidget):
             pass
         return ""
 
-    def _处理添加(self) -> None:
-        """处理添加步骤"""
-        操作类型 = self.添加类型选择.currentText()
-        self.步骤添加信号.emit(操作类型)
-
-    def _处理删除(self) -> None:
-        """处理删除步骤"""
-        当前项 = self.步骤树.currentItem()
-        if 当前项:
-            步骤标识 = 当前项.data(0, Qt.ItemDataRole.UserRole)
-            if 步骤标识:
-                self.步骤删除信号.emit(步骤标识)
-
-    def _处理上移(self) -> None:
-        """处理上移步骤"""
-        当前项 = self.步骤树.currentItem()
-        if 当前项:
-            索引 = self.步骤树.indexOfTopLevelItem(当前项)
+    def _显示右键菜单(self, 位置) -> None:
+        """显示右键菜单"""
+        项 = self.步骤树.itemAt(位置)
+        菜单 = QMenu(self)
+        if 项:
+            步骤标识 = 项.data(0, Qt.ItemDataRole.UserRole)
+            索引 = self.步骤树.indexOfTopLevelItem(项)
+            添加菜单 = 菜单.addMenu("添加")
+            for 操作类型 in 操作类型枚举:
+                添加菜单.addAction(操作类型.value, lambda 类型=操作类型.value: self.步骤添加信号.emit(类型))
+            菜单.addSeparator()
+            菜单.addAction("复制", lambda: self._处理复制())
             if 索引 > 0:
-                self.步骤排序信号.emit(索引 + 1, 索引)
-
-    def _处理下移(self) -> None:
-        """处理下移步骤"""
-        当前项 = self.步骤树.currentItem()
-        if 当前项:
-            索引 = self.步骤树.indexOfTopLevelItem(当前项)
+                菜单.addAction("上移", lambda: self.步骤排序信号.emit(索引 + 1, 索引))
             if 索引 < self.步骤树.topLevelItemCount() - 1:
-                self.步骤排序信号.emit(索引 + 1, 索引 + 2)
+                菜单.addAction("下移", lambda: self.步骤排序信号.emit(索引 + 1, 索引 + 2))
+            菜单.addSeparator()
+            菜单.addAction("删除", lambda: self.步骤删除信号.emit(步骤标识))
+        else:
+            添加菜单 = 菜单.addMenu("添加")
+            for 操作类型 in 操作类型枚举:
+                添加菜单.addAction(操作类型.value, lambda 类型=操作类型.value: self.步骤添加信号.emit(类型))
+        菜单.exec(self.步骤树.mapToGlobal(位置))
 
     def _处理复制(self) -> None:
         """处理复制步骤"""

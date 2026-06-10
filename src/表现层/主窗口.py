@@ -36,21 +36,6 @@ class 主窗口类(QMainWindow):
         """初始化菜单栏"""
         菜单栏 = self.menuBar()
 
-        文件菜单 = 菜单栏.addMenu("文件")
-        导入动作 = QAction("导入脚本", self)
-        导出动作 = QAction("导出脚本", self)
-        退出动作 = QAction("退出", self)
-        文件菜单.addAction(导入动作)
-        文件菜单.addAction(导出动作)
-        文件菜单.addSeparator()
-        文件菜单.addAction(退出动作)
-
-        编辑菜单 = 菜单栏.addMenu("编辑")
-        新建动作 = QAction("新建脚本", self)
-        删除动作 = QAction("删除脚本", self)
-        编辑菜单.addAction(新建动作)
-        编辑菜单.addAction(删除动作)
-
         设置菜单 = 菜单栏.addMenu("设置")
         热键动作 = QAction("热键设置", self)
         悬浮窗动作 = QAction("悬浮窗设置", self)
@@ -59,45 +44,35 @@ class 主窗口类(QMainWindow):
         设置菜单.addAction(悬浮窗动作)
         设置菜单.addAction(定时动作)
 
-        帮助菜单 = 菜单栏.addMenu("帮助")
-        关于动作 = QAction("关于", self)
-        帮助菜单.addAction(关于动作)
-
         self._菜单动作 = [
-            导入动作, 导出动作, 退出动作,
-            新建动作, 删除动作,
             热键动作, 悬浮窗动作, 定时动作,
-            关于动作,
         ]
-        self._菜单对象 = [文件菜单, 编辑菜单, 设置菜单, 帮助菜单]
+        self._菜单对象 = [设置菜单]
 
     def 初始化中央区域(self) -> None:
-        """初始化中央区域布局"""
+        """初始化中央区域布局：左-脚本列表，中-操作列表，右-操作详情"""
         中央组件 = QWidget()
         主布局 = QHBoxLayout(中央组件)
 
-        左侧分割器 = QSplitter(Qt.Orientation.Vertical)
         右侧布局 = QVBoxLayout()
-
-        if self.脚本列表组件:
-            左侧分割器.addWidget(self.脚本列表组件)
-        if self.操作列表组件:
-            左侧分割器.addWidget(self.操作列表组件)
-
         右侧布局.addWidget(self.操作配置组件 or QWidget())
         if self.执行控制组件:
             右侧布局.addWidget(self.执行控制组件)
         if self.状态信息组件:
             右侧布局.addWidget(self.状态信息组件)
-
         右侧组件 = QWidget()
         右侧组件.setLayout(右侧布局)
 
         主分割器 = QSplitter(Qt.Orientation.Horizontal)
-        主分割器.addWidget(左侧分割器)
+        if self.脚本列表组件:
+            主分割器.addWidget(self.脚本列表组件)
+        if self.操作列表组件:
+            主分割器.addWidget(self.操作列表组件)
         主分割器.addWidget(右侧组件)
-        主分割器.setStretchFactor(0, 3)
-        主分割器.setStretchFactor(1, 2)
+        主分割器.setStretchFactor(0, 1)
+        主分割器.setStretchFactor(1, 3)
+        主分割器.setStretchFactor(2, 4)
+        主分割器.setSizes([180, 350, 470])
 
         主布局.addWidget(主分割器)
         self.setCentralWidget(中央组件)

@@ -155,11 +155,8 @@ def _连接所有菜单(主窗口, 脚本管理服务, 脚本列表, 执行引�
     for 动作 in 主窗口._菜单动作:
         动作映射[动作.text()] = 动作
 
-    动作映射.get("导入脚本").triggered.connect(lambda: _导入脚本(脚本管理服务, 脚本列表)) if 动作映射.get("导入脚本") else None
-    动作映射.get("导出脚本").triggered.connect(lambda: _导出脚本(脚本管理服务, 脚本列表.当前脚本标识)) if 动作映射.get("导出脚本") else None
-    动作映射.get("退出").triggered.connect(QApplication.instance().quit) if 动作映射.get("退出") else None
-    动作映射.get("新建脚本").triggered.connect(lambda: _新建脚本(脚本管理服务, 脚本列表)) if 动作映射.get("新建脚本") else None
-    动作映射.get("删除脚本").triggered.connect(lambda: _删除脚本(脚本管理服务, 脚本列表, 脚本列表.当前脚本标识)) if 动作映射.get("删除脚本") else None
+
+
     动作映射.get("热键设置").triggered.connect(lambda: _显示热键设置(主窗口)) if 动作映射.get("热键设置") else None
     动作映射.get("悬浮窗设置").triggered.connect(lambda: _显示悬浮窗设置(悬浮窗, 配置DAO)) if 动作映射.get("悬浮窗设置") else None
     动作映射.get("定时任务").triggered.connect(lambda: _显示定时任务(定时调度器, 脚本管理服务)) if 动作映射.get("定时任务") else None

@@ -28,15 +28,10 @@ class 脚本列表组件类(QWidget):
     def 初始化界面(self) -> None:
         """初始化界面"""
         布局 = QVBoxLayout(self)
-        搜索框布局 = QHBoxLayout()
         self.搜索框 = QLineEdit()
         self.搜索框.setPlaceholderText("搜索脚本...")
         self.搜索框.textChanged.connect(self.执行搜索)
-        搜索框布局.addWidget(self.搜索框)
-        新建按钮 = QPushButton("新建")
-        新建按钮.clicked.connect(self.脚本新建信号.emit)
-        搜索框布局.addWidget(新建按钮)
-        布局.addLayout(搜索框布局)
+        布局.addWidget(self.搜索框)
 
         self.脚本树 = QTreeWidget()
         self.脚本树.setHeaderLabels(["脚本名称", "步骤数", "修改时间"])
@@ -90,15 +85,20 @@ class 脚本列表组件类(QWidget):
     def _显示右键菜单(self, 位置) -> None:
         """显示右键菜单"""
         项 = self.脚本树.itemAt(位置)
-        if not 项:
-            return
-        脚本标识 = 项.data(0, Qt.ItemDataRole.UserRole)
         菜单 = QMenu(self)
-        菜单.addAction("编辑信息", lambda: self.脚本编辑信号.emit(脚本标识))
-        菜单.addAction("复制", lambda: self.脚本复制信号.emit(脚本标识))
-        菜单.addAction("导出", lambda: self.脚本导出信号.emit(脚本标识))
-        菜单.addSeparator()
-        菜单.addAction("删除", lambda: self._确认删除(脚本标识))
+        if 项:
+            脚本标识 = 项.data(0, Qt.ItemDataRole.UserRole)
+            菜单.addAction("新建", lambda: self.脚本新建信号.emit())
+            菜单.addAction("导入", lambda: self.脚本导入信号.emit())
+            菜单.addSeparator()
+            菜单.addAction("编辑", lambda: self.脚本编辑信号.emit(脚本标识))
+            菜单.addAction("复制", lambda: self.脚本复制信号.emit(脚本标识))
+            菜单.addAction("导出", lambda: self.脚本导出信号.emit(脚本标识))
+            菜单.addSeparator()
+            菜单.addAction("删除", lambda: self._确认删除(脚本标识))
+        else:
+            菜单.addAction("新建", lambda: self.脚本新建信号.emit())
+            菜单.addAction("导入", lambda: self.脚本导入信号.emit())
         菜单.exec(self.脚本树.mapToGlobal(位置))
 
     def _确认删除(self, 脚本标识: int) -> None:
