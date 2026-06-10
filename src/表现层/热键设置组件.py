@@ -7,7 +7,7 @@ from src.公共.异常定义 import 热键冲突异常
 from src.公共.日志管理 import 获取日志管理器
 
 
-class 热键设置组件类(QWidget):
+class 热键设置组件类(QDialog):
     """热键设置界面"""
 
     配置保存信号 = Signal()

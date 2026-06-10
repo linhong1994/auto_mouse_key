@@ -1,6 +1,7 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt
 from src.数据访问层.数据库管理器 import 数据库管理器类
@@ -103,12 +104,16 @@ def 连接信号槽(主窗口, 执行引擎, 录制控制器, 脚本管理服务
     操作列表 = 主窗口.操作列表组件
     操作配置 = 主窗口.操作配置组件
     执行控制 = 主窗口.执行控制组件
+    状态信息 = 主窗口.状态信息组件
 
     脚本列表.脚本选中信号.connect(lambda 标识: 操作列表.加载脚本步骤(标识))
     脚本列表.脚本选中信号.connect(lambda 标识: setattr(操作配置, "当前脚本标识", 标识))
     脚本列表.脚本新建信号.connect(lambda: _新建脚本(脚本管理服务, 脚本列表))
     脚本列表.脚本删除信号.connect(lambda 标识: _删除脚本(脚本管理服务, 脚本列表, 标识))
     脚本列表.脚本复制信号.connect(lambda 标识: _复制脚本(脚本管理服务, 脚本列表, 标识))
+    脚本列表.脚本编辑信号.connect(lambda 标识: _编辑脚本信息(脚本管理服务, 脚本列表, 标识))
+    脚本列表.脚本导出信号.connect(lambda 标识: _导出脚本(脚本管理服务, 标识))
+    脚本列表.脚本导入信号.connect(lambda: _导入脚本(脚本管理服务, 脚本列表))
 
     操作列表.步骤选中信号.connect(lambda 标识: _加载步骤(步骤管理服务, 操作配置, 标识))
     操作列表.步骤添加信号.connect(lambda 类型: _添加步骤(步骤管理服务, 操作列表, 操作配置, 类型))
@@ -119,21 +124,108 @@ def 连接信号槽(主窗口, 执行引擎, 录制控制器, 脚本管理服务
 
     执行控制.回放信号.connect(lambda 速度, 次数: _执行回放(执行引擎, 脚本列表, 速度, 次数))
     执行控制.停止信号.connect(执行引擎.停止执行)
-    执行控制.录制信号.connect(lambda: _切换录制(录制控制器, 执行控制))
+    执行控制.录制信号.connect(lambda: _切换录制(录制控制器, 执行控制, 脚本列表))
 
-    执行引擎.状态变更信号.connect(lambda 状态, 进度: _更新状态(主窗口, 执行控制, 悬浮窗, 状态, 进度))
+    执行引擎.状态变更信号.connect(lambda 状态, 进度: _更新状态(主窗口, 执行控制, 悬浮窗, 状态信息, 状态, 进度))
     执行引擎.日志信号.connect(悬浮窗.追加运行日志)
+    执行引擎.步骤执行信号.connect(悬浮窗.更新即将运行操作)
 
     录制控制器.录制步骤捕获.connect(操作列表.追加录制步骤)
     录制控制器.录制状态变更.connect(执行控制.设置录制状态)
+    录制控制器.录制状态变更.connect(lambda 录制中: 脚本列表.刷新列表() if not 录制中 else None)
 
-    热键管理器.热键触发信号.connect(lambda 功能: _处理热键(功能, 执行引擎, 录制控制器, 执行控制))
+    热键管理器.热键触发信号.connect(lambda 功能: _处理热键(功能, 执行引擎, 录制控制器, 执行控制, 脚本列表))
 
     系统托盘.显示主窗口信号.connect(主窗口.show)
-    系统托盘.启动录制信号.connect(lambda: _切换录制(录制控制器, 执行控制))
+    系统托盘.启动录制信号.connect(lambda: _切换录制(录制控制器, 执行控制, 脚本列表))
+    系统托盘.启动回放信号.connect(lambda: _执行回放(执行引擎, 脚本列表, 1.0, 1))
     系统托盘.退出信号.connect(QApplication.instance().quit)
 
     悬浮窗.紧急停止信号.connect(执行引擎.停止执行)
+
+    _连接所有菜单(主窗口, 脚本管理服务, 脚本列表, 执行引擎, 录制控制器, 执行控制,
+                   定时调度器, 热键管理器, 配置DAO, 悬浮窗)
+
+
+def _连接所有菜单(主窗口, 脚本管理服务, 脚本列表, 执行引擎, 录制控制器, 执行控制,
+                   定时调度器, 热键管理器, 配置DAO, 悬浮窗):
+    """连接菜单栏所有动作"""
+    菜单栏 = 主窗口.menuBar()
+    菜单映射 = {}
+    for 动作 in 菜单栏.actions():
+        菜单映射[动作.text()] = 动作.menu()
+
+    文件菜单 = 菜单映射.get("文件")
+    if 文件菜单:
+        for 动作 in 文件菜单.actions():
+            if 动作.text() == "导入脚本":
+                动作.triggered.connect(lambda: _导入脚本(脚本管理服务, 脚本列表))
+            elif 动作.text() == "导出脚本":
+                动作.triggered.connect(lambda: _导出脚本(脚本管理服务, 脚本列表.当前脚本标识))
+            elif 动作.text() == "退出":
+                动作.triggered.connect(QApplication.instance().quit)
+
+    编辑菜单 = 菜单映射.get("编辑")
+    if 编辑菜单:
+        for 动作 in 编辑菜单.actions():
+            if 动作.text() == "新建脚本":
+                动作.triggered.connect(lambda: _新建脚本(脚本管理服务, 脚本列表))
+            elif 动作.text() == "删除脚本":
+                动作.triggered.connect(lambda: _删除脚本(脚本管理服务, 脚本列表, 脚本列表.当前脚本标识))
+
+    设置菜单 = 菜单映射.get("设置")
+    if 设置菜单:
+        for 动作 in 设置菜单.actions():
+            if 动作.text() == "热键设置":
+                动作.triggered.connect(lambda: _显示热键设置(主窗口))
+            elif 动作.text() == "悬浮窗设置":
+                动作.triggered.connect(lambda: _显示悬浮窗设置(悬浮窗, 配置DAO))
+            elif 动作.text() == "定时任务":
+                动作.triggered.connect(lambda: _显示定时任务(定时调度器, 脚本管理服务))
+
+    帮助菜单 = 菜单映射.get("帮助")
+    if 帮助菜单:
+        for 动作 in 帮助菜单.actions():
+            if 动作.text() == "关于":
+                动作.triggered.connect(lambda: QMessageBox.about(主窗口, "关于", "自动操作工具 v1.0\n\n基于Python+PySide6的自动鼠标、按键操作工具"))
+
+
+def _编辑脚本信息(脚本管理服务, 脚本列表, 标识):
+    from PySide6.QtWidgets import QInputDialog
+    脚本 = 脚本管理服务.脚本DAO.查询ById(标识)
+    if 脚本:
+        名称, 确定 = QInputDialog.getText(None, "编辑脚本", "脚本名称:", text=脚本.脚本名称)
+        if 确定 and 名称:
+            脚本管理服务.修改脚本信息(标识, 名称=名称)
+            脚本列表.刷新列表()
+
+
+def _导出脚本(脚本管理服务, 标识):
+    from PySide6.QtWidgets import QFileDialog
+    if not 标识:
+        return
+    路径, _ = QFileDialog.getSaveFileName(None, "导出脚本", "", "JSON文件 (*.json)")
+    if 路径:
+        脚本管理服务.导出为JSON(标识, 路径)
+
+
+def _导入脚本(脚本管理服务, 脚本列表):
+    from PySide6.QtWidgets import QFileDialog
+    路径, _ = QFileDialog.getOpenFileName(None, "导入脚本", "", "JSON文件 (*.json)")
+    if 路径:
+        try:
+            脚本管理服务.从JSON导入(路径)
+            脚本列表.刷新列表()
+        except Exception as 异常:
+            QMessageBox.warning(None, "导入失败", str(异常))
+
+
+def _显示定时任务(定时调度器, 脚本管理服务):
+    from src.表现层.定时任务管理组件 import 定时任务管理组件类
+    对话框 = 定时任务管理组件类(定时调度器, 脚本管理服务)
+    对话框.setWindowTitle("定时任务管理")
+    from PySide6.QtWidgets import QDialog
+    对话框.exec() if hasattr(对话框, 'exec') else 对话框.show()
 
 
 def _新建脚本(脚本管理服务, 脚本列表):
@@ -155,11 +247,9 @@ def _复制脚本(脚本管理服务, 脚本列表, 标识):
 
 
 def _加载步骤(步骤管理服务, 操作配置, 标识):
-    步骤列表 = 步骤管理服务.查询脚本步骤(0)
-    for 步骤 in 步骤列表:
-        if 步骤.步骤标识 == 标识:
-            操作配置.加载步骤数据(步骤)
-            break
+    步骤 = 步骤管理服务.步骤DAO.查询ById(标识)
+    if 步骤:
+        操作配置.加载步骤数据(步骤)
 
 
 def _添加步骤(步骤管理服务, 操作列表, 操作配置, 类型):
@@ -193,49 +283,35 @@ def _执行回放(执行引擎, 脚本列表, 速度, 次数):
         执行引擎.执行脚本(脚本标识, 速度, 次数)
 
 
-def _切换录制(录制控制器, 执行控制):
+def _切换录制(录制控制器, 执行控制, 脚本列表):
     if 录制控制器.是否录制中():
         录制控制器.停止录制()
+        脚本列表.刷新列表()
     else:
         录制控制器.启动录制()
 
 
-def _更新状态(主窗口, 执行控制, 悬浮窗, 状态, 进度):
+def _更新状态(主窗口, 执行控制, 悬浮窗, 状态信息, 状态, 进度):
     try:
         运行状态 = 运行状态枚举(状态)
         主窗口.更新执行状态显示(运行状态, 进度)
         悬浮窗.更新运行状态(运行状态, 进度)
         执行控制.设置回放状态(运行状态 == 运行状态枚举.回放中)
+        状态信息.更新执行状态(状态, 进度)
     except Exception:
         pass
 
 
-def _处理热键(功能, 执行引擎, 录制控制器, 执行控制):
+def _处理热键(功能, 执行引擎, 录制控制器, 执行控制, 脚本列表):
     if 功能 in ("启动录制", "停止录制"):
-        _切换录制(录制控制器, 执行控制)
+        _切换录制(录制控制器, 执行控制, 脚本列表)
     elif 功能 in ("启动回放", "停止回放"):
         if 执行引擎.当前状态 == 运行状态枚举.回放中:
             执行引擎.停止执行()
+        else:
+            _执行回放(执行引擎, 脚本列表, 1.0, 1)
     elif 功能 == "紧急停止":
         执行引擎.停止执行()
-
-
-def _连接设置菜单(主窗口, 悬浮窗, 配置DAO):
-    """连接设置菜单的动作"""
-    菜单栏 = 主窗口.menuBar()
-    设置菜单 = None
-    for 菜单 in 菜单栏.findChildren(object):
-        pass
-    for 动作 in 菜单栏.actions():
-        if 动作.text() == "设置":
-            设置菜单 = 动作.menu()
-            break
-    if 设置菜单:
-        for 动作 in 设置菜单.actions():
-            if 动作.text() == "悬浮窗设置":
-                动作.triggered.connect(lambda: _显示悬浮窗设置(悬浮窗, 配置DAO))
-            elif 动作.text() == "热键设置":
-                动作.triggered.connect(lambda: _显示热键设置(主窗口))
 
 
 def _显示悬浮窗设置(悬浮窗, 配置DAO):

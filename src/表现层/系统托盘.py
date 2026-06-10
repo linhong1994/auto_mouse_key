@@ -19,6 +19,10 @@ class 系统托盘类(QSystemTrayIcon):
 
     def 初始化托盘(self) -> None:
         """初始化系统托盘"""
+        from PySide6.QtGui import QPixmap, QColor
+        像素图 = QPixmap(16, 16)
+        像素图.fill(QColor(0, 120, 215))
+        self.setIcon(QIcon(像素图))
         self.setToolTip("自动操作工具")
 
         菜单 = QMenu()

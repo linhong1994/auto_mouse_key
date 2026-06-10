@@ -72,7 +72,9 @@ class 执行引擎类(QObject):
 
     def _处理步骤执行结果(self, 结果: 步骤执行结果) -> None:
         """处理步骤执行结果"""
+        from datetime import datetime
         日志条目 = 悬浮窗日志条目(
+            日志时间戳=datetime.now().strftime("%H:%M:%S"),
             操作描述=f"步骤{结果.步骤序号}",
             执行结果="成功" if 结果.执行成功 else "失败",
             附加信息=结果.错误信息 or "",
@@ -81,7 +83,7 @@ class 执行引擎类(QObject):
 
     def _处理回放完成(self, 成功: bool) -> None:
         """处理回放完成"""
-        self.设置状态(运行状态枚举.空闲)
+        self.设置状态(运行状态枚举.空闲 if 成功 else 运行状态枚举.执行失败)
 
     def _生成参数摘要(self, 步骤: 操作步骤数据) -> str:
         """生成步骤参数摘要文本"""

@@ -2,3 +2,5 @@
 /.codeartsdoer
 /.venv
 **/__pycache__/
+build
+dist

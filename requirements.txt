@@ -5,4 +5,3 @@ paddleocr>=2.7
 Pillow>=10.0
 APScheduler>=3.10
 pyperclip>=1.8
-pydantic>=2.0

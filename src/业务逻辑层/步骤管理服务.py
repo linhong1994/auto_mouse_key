@@ -71,16 +71,10 @@ class 步骤管理服务类:
 
     def 复制步骤(self, 步骤标识: int, 目标位置: int) -> int:
         """复制步骤并粘贴到指定位置"""
-        原步骤 = None
-        脚本标识 = 0
-        所有步骤 = []
-        for 步骤 in self.步骤DAO.查询By脚本(0):
-            if 步骤.步骤标识 == 步骤标识:
-                原步骤 = 步骤
-                脚本标识 = 步骤.所属脚本标识
-                break
+        原步骤 = self.步骤DAO.查询ById(步骤标识)
         if 原步骤 is None:
             return 0
+        脚本标识 = 原步骤.所属脚本标识
         所有步骤 = self.步骤DAO.查询By脚本(脚本标识)
         新步骤 = 操作步骤数据(
             所属脚本标识=脚本标识,
@@ -119,33 +113,32 @@ class 步骤管理服务类:
         合法类型 = {e.value for e in 操作类型枚举}
         if 新类型 not in 合法类型:
             raise 参数非法异常(f"不合法的操作类型: {新类型}")
-        现有步骤 = self.步骤DAO.查询By脚本(0)
-        for 步骤 in 现有步骤:
-            if 步骤.步骤标识 == 步骤标识:
-                步骤.操作类型 = 新类型
-                步骤.目标坐标X = None
-                步骤.目标坐标Y = None
-                步骤.按键值 = None
-                步骤.修饰键列表 = None
-                步骤.输入文本 = None
-                步骤.滚轮量 = None
-                步骤.按键保持时长 = None
-                步骤.延时时长 = None
-                步骤.起点坐标X = None
-                步骤.起点坐标Y = None
-                步骤.终点坐标X = None
-                步骤.终点坐标Y = None
-                步骤.OCR区域左上角X = None
-                步骤.OCR区域左上角Y = None
-                步骤.OCR区域右下角X = None
-                步骤.OCR区域右下角Y = None
-                步骤.OCR识别语言 = None
-                步骤.OCR结果变量名 = None
-                步骤.OCR条件类型 = None
-                步骤.OCR目标文本 = None
-                步骤.OCR逻辑关系 = None
-                步骤.OCR超时时间 = None
-                步骤.OCR轮询间隔 = None
-                步骤.OCR超时处理 = None
-                self.步骤DAO.更新(步骤标识, 步骤)
-                break
+        步骤 = self.步骤DAO.查询ById(步骤标识)
+        if 步骤 is None:
+            return
+        步骤.操作类型 = 新类型
+        步骤.目标坐标X = None
+        步骤.目标坐标Y = None
+        步骤.按键值 = None
+        步骤.修饰键列表 = None
+        步骤.输入文本 = None
+        步骤.滚轮量 = None
+        步骤.按键保持时长 = None
+        步骤.延时时长 = None
+        步骤.起点坐标X = None
+        步骤.起点坐标Y = None
+        步骤.终点坐标X = None
+        步骤.终点坐标Y = None
+        步骤.OCR区域左上角X = None
+        步骤.OCR区域左上角Y = None
+        步骤.OCR区域右下角X = None
+        步骤.OCR区域右下角Y = None
+        步骤.OCR识别语言 = None
+        步骤.OCR结果变量名 = None
+        步骤.OCR条件类型 = None
+        步骤.OCR目标文本 = None
+        步骤.OCR逻辑关系 = None
+        步骤.OCR超时时间 = None
+        步骤.OCR轮询间隔 = None
+        步骤.OCR超时处理 = None
+        self.步骤DAO.更新(步骤标识, 步骤)
