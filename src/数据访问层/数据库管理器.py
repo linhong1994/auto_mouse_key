@@ -20,7 +20,7 @@ class 数据库管理器类:
             数据库路径: 数据库文件路径，为None时使用默认路径
         """
         if 数据库路径 is None:
-            数据目录 = os.path.join(os.path.expanduser("~"), "AppData", "Local", "auto_mouse_key")
+            数据目录 = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data")
             os.makedirs(数据目录, exist_ok=True)
             数据库路径 = os.path.join(数据目录, "auto_mouse_key.db")
 

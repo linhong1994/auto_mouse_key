@@ -28,7 +28,7 @@ def _初始化日志管理器() -> None:
     _日志管理器实例 = logging.getLogger("自动操作工具")
     _日志管理器实例.setLevel(logging.DEBUG)
 
-    日志目录 = os.path.join(os.path.expanduser("~"), "AppData", "Local", "auto_mouse_key", "logs")
+    日志目录 = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "logs")
     os.makedirs(日志目录, exist_ok=True)
 
     日志文件路径 = os.path.join(日志目录, "auto_mouse_key.log")
