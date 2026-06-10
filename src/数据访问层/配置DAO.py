@@ -23,11 +23,18 @@ class 配置DAO类:
         return 结果[0] if 结果 else 默认值
 
     def 设置配置(self, 键名: str, 键值: str) -> None:
-        """设置配置值，不存在则插入"""
+        """设置配置值，不存在则插入，存在则更新（保留自增主键）"""
         self.连接.execute(
-            "INSERT OR REPLACE INTO 应用配置表 (配置键名, 配置键值) VALUES (?, ?)",
-            (键名, 键值),
+            "UPDATE 应用配置表 SET 配置键值 = ? WHERE 配置键名 = ?",
+            (键值, 键名),
         )
+        if self.连接.total_changes == 0 or self.连接.execute(
+            "SELECT changes()"
+        ).fetchone()[0] == 0:
+            self.连接.execute(
+                "INSERT INTO 应用配置表 (配置键名, 配置键值) VALUES (?, ?)",
+                (键名, 键值),
+            )
         self.连接.commit()
 
     def 查询所有配置(self) -> dict[str, str]:

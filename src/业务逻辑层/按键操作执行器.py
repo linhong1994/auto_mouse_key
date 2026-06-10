@@ -38,15 +38,19 @@ class 按键操作执行器类:
             return False
 
     def 文本输入(self, 文本: str, 按键延时: int = 0) -> bool:
-        """逐字符输入指定文本
+        """输入指定文本，支持中英文混合输入
+
+        通过剪贴板粘贴实现，兼容中文等非ASCII字符。
+        pyautogui.typewrite仅支持ASCII字符，无法输入中文。
 
         参数:
             文本: 要输入的文本内容
-            按键延时: 按键间延时，毫秒
+            按键延时: 按键间延时，毫秒（粘贴模式下忽略）
         """
         try:
-            间隔 = 按键延时 / 1000.0 if 按键延时 > 0 else 0
-            pyautogui.typewrite(文本, interval=间隔)
+            import pyperclip
+            pyperclip.copy(文本)
+            pyautogui.hotkey("ctrl", "v")
             return True
         except Exception as 异常:
             self.日志.error(f"文本输入失败: {异常}")

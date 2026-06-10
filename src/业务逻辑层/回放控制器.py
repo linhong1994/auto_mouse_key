@@ -19,6 +19,8 @@ class 回放控制器类(QObject):
         self.按键执行器 = 按键执行器
         self.OCR服务 = OCR服务
         self.OCR条件判断器 = OCR条件判断器
+        self.悬浮窗 = None
+        self.配置DAO = None
         self._执行线程 = None
         self._停止标志 = False
         self._暂停标志 = False
@@ -81,8 +83,10 @@ class 回放控制器类(QObject):
     def _执行步骤(self, 步骤: 操作步骤数据) -> 步骤执行结果:
         """执行单个操作步骤"""
         开始时间 = time.perf_counter()
+        避让中 = False
         try:
             操作类型 = 操作类型枚举(步骤.操作类型)
+            避让中 = self._执行避让(步骤, 操作类型)
             if 鼠标操作类型集合.包含(操作类型):
                 成功 = self._执行鼠标操作(操作类型, 步骤)
             elif 按键操作类型集合.包含(操作类型):
@@ -102,6 +106,37 @@ class 回放控制器类(QObject):
         except Exception as 异常:
             耗时 = int((time.perf_counter() - 开始时间) * 1000)
             return 步骤执行结果(步骤序号=步骤.排序序号, 执行成功=False, 执行耗时=耗时, 错误信息=str(异常))
+        finally:
+            if 避让中:
+                self._恢复悬浮窗()
+
+    def _执行避让(self, 步骤: 操作步骤数据, 操作类型: 操作类型枚举) -> bool:
+        """检测并执行悬浮窗自动避让，返回是否正在避让"""
+        if not self.悬浮窗 or not self.配置DAO:
+            return False
+        避让配置 = self.配置DAO.查询配置("悬浮窗自动避让", "false")
+        if 避让配置 != "true":
+            return False
+        目标X = 目标Y = -1
+        if 鼠标操作类型集合.包含(操作类型):
+            if 操作类型 == 操作类型枚举.鼠标拖拽:
+                目标X = 步骤.起点坐标X or 0
+                目标Y = 步骤.起点坐标Y or 0
+            else:
+                目标X = 步骤.目标坐标X or 0
+                目标Y = 步骤.目标坐标Y or 0
+        elif 操作类型 in (操作类型枚举.OCR识别, 操作类型枚举.OCR条件判断):
+            目标X = 步骤.OCR区域左上角X or 0
+            目标Y = 步骤.OCR区域左上角Y or 0
+        if 目标X >= 0 and self.悬浮窗.检测操作区域冲突(目标X, 目标Y):
+            self.悬浮窗.自动避让()
+            return True
+        return False
+
+    def _恢复悬浮窗(self) -> None:
+        """恢复悬浮窗显示"""
+        if self.悬浮窗:
+            self.悬浮窗.恢复显示()
 
     def _执行鼠标操作(self, 操作类型: 操作类型枚举, 步骤: 操作步骤数据) -> bool:
         """执行鼠标操作"""

@@ -69,7 +69,7 @@ def 初始化业务逻辑层(脚本DAO, 步骤DAO, 定时任务DAO, 热键DAO, �
 
     return (鼠标执行器, 按键执行器, OCR服务, OCR条件判断器,
             脚本管理服务, 步骤管理服务, 回放控制器, 执行引擎,
-            录制控制器, 定时调度器, 热键管理器)
+            录制控制器, 定时调度器, 热键管理器, 配置DAO)
 
 
 def 初始化表现层(执行引擎, 录制控制器, 脚本管理服务, 步骤管理服务,
@@ -150,44 +150,19 @@ def 连接信号槽(主窗口, 执行引擎, 录制控制器, 脚本管理服务
 def _连接所有菜单(主窗口, 脚本管理服务, 脚本列表, 执行引擎, 录制控制器, 执行控制,
                    定时调度器, 热键管理器, 配置DAO, 悬浮窗):
     """连接菜单栏所有动作"""
-    菜单栏 = 主窗口.menuBar()
-    菜单映射 = {}
-    for 动作 in 菜单栏.actions():
-        菜单映射[动作.text()] = 动作.menu()
+    动作映射 = {}
+    for 动作 in 主窗口._菜单动作:
+        动作映射[动作.text()] = 动作
 
-    文件菜单 = 菜单映射.get("文件")
-    if 文件菜单:
-        for 动作 in 文件菜单.actions():
-            if 动作.text() == "导入脚本":
-                动作.triggered.connect(lambda: _导入脚本(脚本管理服务, 脚本列表))
-            elif 动作.text() == "导出脚本":
-                动作.triggered.connect(lambda: _导出脚本(脚本管理服务, 脚本列表.当前脚本标识))
-            elif 动作.text() == "退出":
-                动作.triggered.connect(QApplication.instance().quit)
-
-    编辑菜单 = 菜单映射.get("编辑")
-    if 编辑菜单:
-        for 动作 in 编辑菜单.actions():
-            if 动作.text() == "新建脚本":
-                动作.triggered.connect(lambda: _新建脚本(脚本管理服务, 脚本列表))
-            elif 动作.text() == "删除脚本":
-                动作.triggered.connect(lambda: _删除脚本(脚本管理服务, 脚本列表, 脚本列表.当前脚本标识))
-
-    设置菜单 = 菜单映射.get("设置")
-    if 设置菜单:
-        for 动作 in 设置菜单.actions():
-            if 动作.text() == "热键设置":
-                动作.triggered.connect(lambda: _显示热键设置(主窗口))
-            elif 动作.text() == "悬浮窗设置":
-                动作.triggered.connect(lambda: _显示悬浮窗设置(悬浮窗, 配置DAO))
-            elif 动作.text() == "定时任务":
-                动作.triggered.connect(lambda: _显示定时任务(定时调度器, 脚本管理服务))
-
-    帮助菜单 = 菜单映射.get("帮助")
-    if 帮助菜单:
-        for 动作 in 帮助菜单.actions():
-            if 动作.text() == "关于":
-                动作.triggered.connect(lambda: QMessageBox.about(主窗口, "关于", "自动操作工具 v1.0\n\n基于Python+PySide6的自动鼠标、按键操作工具"))
+    动作映射.get("导入脚本").triggered.connect(lambda: _导入脚本(脚本管理服务, 脚本列表)) if 动作映射.get("导入脚本") else None
+    动作映射.get("导出脚本").triggered.connect(lambda: _导出脚本(脚本管理服务, 脚本列表.当前脚本标识)) if 动作映射.get("导出脚本") else None
+    动作映射.get("退出").triggered.connect(QApplication.instance().quit) if 动作映射.get("退出") else None
+    动作映射.get("新建脚本").triggered.connect(lambda: _新建脚本(脚本管理服务, 脚本列表)) if 动作映射.get("新建脚本") else None
+    动作映射.get("删除脚本").triggered.connect(lambda: _删除脚本(脚本管理服务, 脚本列表, 脚本列表.当前脚本标识)) if 动作映射.get("删除脚本") else None
+    动作映射.get("热键设置").triggered.connect(lambda: _显示热键设置(主窗口)) if 动作映射.get("热键设置") else None
+    动作映射.get("悬浮窗设置").triggered.connect(lambda: _显示悬浮窗设置(悬浮窗, 配置DAO)) if 动作映射.get("悬浮窗设置") else None
+    动作映射.get("定时任务").triggered.connect(lambda: _显示定时任务(定时调度器, 脚本管理服务)) if 动作映射.get("定时任务") else None
+    动作映射.get("关于").triggered.connect(lambda: QMessageBox.about(主窗口, "关于", "自动操作工具 v1.0\n\n基于Python+PySide6的自动鼠标、按键操作工具")) if 动作映射.get("关于") else None
 
 
 def _编辑脚本信息(脚本管理服务, 脚本列表, 标识):
@@ -381,20 +356,24 @@ def main():
 
         (鼠标执行器, 按键执行器, OCR服务, OCR条件判断器,
          脚本管理服务, 步骤管理服务, 回放控制器, 执行引擎,
-         录制控制器, 定时调度器, 热键管理器) = 初始化业务逻辑层(
+         录制控制器, 定时调度器, 热键管理器, 配置DAO_业务层) = 初始化业务逻辑层(
             脚本DAO, 步骤DAO, 定时任务DAO, 热键DAO, 配置DAO, JSON序列化器)
 
         主窗口, 悬浮窗, 系统托盘 = 初始化表现层(
             执行引擎, 录制控制器, 脚本管理服务, 步骤管理服务,
             定时调度器, 热键管理器, 配置DAO)
 
-        连接信号槽(主窗口, 执行引擎, 录制控制器, 脚本管理服务,
-                   步骤管理服务, 定时调度器, 热键管理器, 配置DAO, 悬浮窗, 系统托盘)
-
         热键管理器.加载配置()
         定时调度器.启动调度器()
 
         主窗口.初始化界面()
+
+        回放控制器.悬浮窗 = 悬浮窗
+        回放控制器.配置DAO = 配置DAO
+
+        连接信号槽(主窗口, 执行引擎, 录制控制器, 脚本管理服务,
+                   步骤管理服务, 定时调度器, 热键管理器, 配置DAO, 悬浮窗, 系统托盘)
+
         主窗口.脚本列表组件.刷新列表()
         主窗口.show()
         系统托盘.show()
@@ -403,7 +382,6 @@ def main():
         if 悬浮窗启用:
             悬浮窗.开启悬浮窗()
 
-        _连接设置菜单(主窗口, 悬浮窗, 配置DAO)
 
         日志.info("应用启动完成")
 

@@ -209,7 +209,16 @@ class 操作配置组件类(QWidget):
                 self.OCR左上角Y.setValue(步骤.OCR区域左上角Y or 0)
                 self.OCR右下角X.setValue(步骤.OCR区域右下角X or 0)
                 self.OCR右下角Y.setValue(步骤.OCR区域右下角Y or 0)
+                self.OCR识别语言.setCurrentText(步骤.OCR识别语言 or "中文简体+英文")
+                self.OCR结果变量名.setText(步骤.OCR结果变量名 or "")
                 self.OCR步骤延时.setValue(步骤.步骤延时)
+            elif 类型 == 操作类型枚举.OCR条件判断:
+                self.OCR条件类型.setCurrentText(步骤.OCR条件类型 or "文本匹配")
+                self.OCR目标文本.setText(步骤.OCR目标文本 or "")
+                self.OCR逻辑关系.setCurrentText(步骤.OCR逻辑关系 or "与")
+                self.OCR超时时间.setValue(步骤.OCR超时时间 or 30)
+                self.OCR轮询间隔.setValue(步骤.OCR轮询间隔 or 1000)
+                self.OCR超时处理.setCurrentText(步骤.OCR超时处理 or "跳过继续")
             elif 类型 == 操作类型枚举.延时:
                 self.延时时长.setValue(步骤.延时时长 or 0)
         except Exception:

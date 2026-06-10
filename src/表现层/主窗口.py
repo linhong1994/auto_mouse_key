@@ -20,8 +20,9 @@ class 主窗口类(QMainWindow):
         self.状态信息组件 = None
         self.悬浮窗 = None
         self.系统托盘 = None
+        self.热键管理器 = None
+        self._菜单动作 = []
         self.日志 = 获取日志管理器("主窗口")
-        self.初始化界面()
 
     def 初始化界面(self) -> None:
         """初始化主界面布局和各区域组件"""
@@ -34,23 +35,41 @@ class 主窗口类(QMainWindow):
     def 初始化菜单栏(self) -> None:
         """初始化菜单栏"""
         菜单栏 = self.menuBar()
+
         文件菜单 = 菜单栏.addMenu("文件")
-        文件菜单.addAction(QAction("导入脚本", self))
-        文件菜单.addAction(QAction("导出脚本", self))
+        导入动作 = QAction("导入脚本", self)
+        导出动作 = QAction("导出脚本", self)
+        退出动作 = QAction("退出", self)
+        文件菜单.addAction(导入动作)
+        文件菜单.addAction(导出动作)
         文件菜单.addSeparator()
-        文件菜单.addAction(QAction("退出", self))
+        文件菜单.addAction(退出动作)
 
         编辑菜单 = 菜单栏.addMenu("编辑")
-        编辑菜单.addAction(QAction("新建脚本", self))
-        编辑菜单.addAction(QAction("删除脚本", self))
+        新建动作 = QAction("新建脚本", self)
+        删除动作 = QAction("删除脚本", self)
+        编辑菜单.addAction(新建动作)
+        编辑菜单.addAction(删除动作)
 
         设置菜单 = 菜单栏.addMenu("设置")
-        设置菜单.addAction(QAction("热键设置", self))
-        设置菜单.addAction(QAction("悬浮窗设置", self))
-        设置菜单.addAction(QAction("定时任务", self))
+        热键动作 = QAction("热键设置", self)
+        悬浮窗动作 = QAction("悬浮窗设置", self)
+        定时动作 = QAction("定时任务", self)
+        设置菜单.addAction(热键动作)
+        设置菜单.addAction(悬浮窗动作)
+        设置菜单.addAction(定时动作)
 
         帮助菜单 = 菜单栏.addMenu("帮助")
-        帮助菜单.addAction(QAction("关于", self))
+        关于动作 = QAction("关于", self)
+        帮助菜单.addAction(关于动作)
+
+        self._菜单动作 = [
+            导入动作, 导出动作, 退出动作,
+            新建动作, 删除动作,
+            热键动作, 悬浮窗动作, 定时动作,
+            关于动作,
+        ]
+        self._菜单对象 = [文件菜单, 编辑菜单, 设置菜单, 帮助菜单]
 
     def 初始化中央区域(self) -> None:
         """初始化中央区域布局"""

@@ -21,7 +21,7 @@ class OCR识别服务类:
         """初始化PaddleOCR引擎"""
         try:
             from paddleocr import PaddleOCR
-            self.引擎 = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+            self.引擎 = PaddleOCR(use_angle_cls=True, lang="ch")
             self.引擎可用 = True
             self.日志.info("OCR引擎初始化成功")
         except Exception as 异常:
