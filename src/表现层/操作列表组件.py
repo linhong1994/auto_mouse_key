@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QTreeWidget,
-    QTreeWidgetItem, QMenu, QMessageBox,
+    QTreeWidgetItem, QMenu,
 )
 from PySide6.QtCore import Qt, Signal
 from src.公共.数据结构 import 操作步骤数据
@@ -15,6 +15,7 @@ class 操作列表组件类(QWidget):
     步骤添加信号 = Signal(str)
     步骤删除信号 = Signal(int)
     步骤排序信号 = Signal(int, int)
+    步骤保存信号 = Signal(object)
 
     def __init__(self, 步骤管理服务=None, parent=None):
         super().__init__(parent)
@@ -34,6 +35,7 @@ class 操作列表组件类(QWidget):
         self.步骤树.setColumnWidth(2, 200)
         self.步骤树.setColumnWidth(3, 60)
         self.步骤树.itemClicked.connect(self._处理步骤选中)
+        self.步骤树.itemDoubleClicked.connect(self._处理步骤双击编辑)
         self.步骤树.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
         self.步骤树.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.步骤树.customContextMenuRequested.connect(self._显示右键菜单)
@@ -91,8 +93,9 @@ class 操作列表组件类(QWidget):
             索引 = self.步骤树.indexOfTopLevelItem(项)
             添加菜单 = 菜单.addMenu("添加")
             for 操作类型 in 操作类型枚举:
-                添加菜单.addAction(操作类型.value, lambda 类型=操作类型.value: self.步骤添加信号.emit(类型))
+                添加菜单.addAction(操作类型.value, lambda 类型=操作类型.value: self._打开添加弹窗(类型))
             菜单.addSeparator()
+            菜单.addAction("编辑", lambda: self._打开编辑弹窗(步骤标识))
             菜单.addAction("复制", lambda: self._处理复制())
             if 索引 > 0:
                 菜单.addAction("上移", lambda: self.步骤排序信号.emit(索引 + 1, 索引))
@@ -103,8 +106,37 @@ class 操作列表组件类(QWidget):
         else:
             添加菜单 = 菜单.addMenu("添加")
             for 操作类型 in 操作类型枚举:
-                添加菜单.addAction(操作类型.value, lambda 类型=操作类型.value: self.步骤添加信号.emit(类型))
+                添加菜单.addAction(操作类型.value, lambda 类型=操作类型.value: self._打开添加弹窗(类型))
         菜单.exec(self.步骤树.mapToGlobal(位置))
+
+    def _打开添加弹窗(self, 操作类型: str) -> None:
+        """打开步骤添加弹窗"""
+        if not self.当前脚本标识:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "提示", "请先选中一个脚本")
+            return
+        from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
+        弹窗 = 步骤编辑弹窗类(操作类型, parent=self)
+        if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
+            步骤数据 = 弹窗.收集步骤数据()
+            if 步骤数据 and self.步骤管理服务 and self.当前脚本标识:
+                self.步骤管理服务.添加步骤(self.当前脚本标识, 步骤数据)
+                self.加载脚本步骤(self.当前脚本标识)
+
+    def _打开编辑弹窗(self, 步骤标识: int) -> None:
+        """打开步骤编辑弹窗"""
+        if not self.步骤管理服务:
+            return
+        步骤 = self.步骤管理服务.步骤DAO.查询ById(步骤标识)
+        if not 步骤:
+            return
+        from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
+        弹窗 = 步骤编辑弹窗类(步骤.操作类型, 步骤数据=步骤, parent=self)
+        if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
+            步骤数据 = 弹窗.收集步骤数据()
+            步骤数据.步骤标识 = 步骤标识
+            self.步骤管理服务.修改步骤(步骤标识, 步骤数据)
+            self.加载脚本步骤(self.当前脚本标识)
 
     def _处理复制(self) -> None:
         """处理复制步骤"""
@@ -121,3 +153,9 @@ class 操作列表组件类(QWidget):
         步骤标识 = 项.data(0, Qt.ItemDataRole.UserRole)
         if 步骤标识:
             self.步骤选中信号.emit(步骤标识)
+
+    def _处理步骤双击编辑(self, 项: QTreeWidgetItem, 列: int) -> None:
+        """双击步骤打开编辑弹窗"""
+        步骤标识 = 项.data(0, Qt.ItemDataRole.UserRole)
+        if 步骤标识:
+            self._打开编辑弹窗(步骤标识)

@@ -5,6 +5,7 @@ from src.公共.数据结构 import 操作步骤数据
 from src.公共.枚举定义 import 操作类型枚举, 运行状态枚举
 from src.公共.日志管理 import 获取日志管理器
 
+鼠标移动节流间隔 = 0.3
 双击间隔阈值 = 0.3
 拖拽距离阈值 = 5
 修饰键集合 = {"alt", "alt_l", "alt_r", "ctrl", "ctrl_l", "ctrl_r",
@@ -34,6 +35,8 @@ class 录制控制器类(QObject):
         self._拖拽按钮: str = ""
         self._文本缓冲: str = ""
         self._文本缓冲起始时间: float = 0.0
+        self._上次移动时间: float = 0.0
+        self._上次移动坐标: tuple[int, int] | None = None
         self.日志 = 获取日志管理器("录制控制器")
 
     def 启动录制(self) -> None:
@@ -50,11 +53,14 @@ class 录制控制器类(QObject):
         self._拖拽起始坐标 = None
         self._文本缓冲 = ""
         self._文本缓冲起始时间 = 0.0
+        self._上次移动时间 = 0.0
+        self._上次移动坐标 = None
         try:
             from pynput import mouse, keyboard
             self._鼠标监听器 = mouse.Listener(
                 on_click=self._处理鼠标点击,
                 on_scroll=self._处理鼠标滚轮,
+                on_move=self._处理鼠标移动,
             )
             self._键盘监听器 = keyboard.Listener(
                 on_press=self._处理键盘按下,
@@ -74,6 +80,7 @@ class 录制控制器类(QObject):
             return None
         self._录制中 = False
         self._刷新文本缓冲()
+        self._刷新末次移动()
         if self._鼠标监听器:
             self._鼠标监听器.stop()
             self._鼠标监听器 = None
@@ -146,6 +153,24 @@ class 录制控制器类(QObject):
             return
         self._记录步骤(操作类型, 目标坐标X=x, 目标坐标Y=y, 滚轮量=abs(dy))
 
+    def _处理鼠标移动(self, x, y) -> None:
+        """处理捕获的鼠标移动事件，带节流"""
+        if not self._录制中:
+            return
+        当前时间 = time.perf_counter()
+        if 当前时间 - self._上次移动时间 < 鼠标移动节流间隔:
+            self._上次移动坐标 = (x, y)
+            return
+        if self._上次移动坐标 is not None:
+            self._刷新文本缓冲()
+            self._记录步骤(
+                操作类型枚举.鼠标移动.value,
+                目标坐标X=self._上次移动坐标[0],
+                目标坐标Y=self._上次移动坐标[1],
+            )
+        self._上次移动时间 = 当前时间
+        self._上次移动坐标 = (x, y)
+
     def _处理键盘按下(self, key) -> None:
         """处理捕获的键盘按下事件，区分修饰键、组合键和普通字符"""
         if not self._录制中:
@@ -188,6 +213,16 @@ class 录制控制器类(QObject):
         if self._文本缓冲:
             self._记录步骤(操作类型枚举.文本输入.value, 输入文本=self._文本缓冲)
             self._文本缓冲 = ""
+
+    def _刷新末次移动(self) -> None:
+        """将末次鼠标移动坐标刷新为步骤"""
+        if self._上次移动坐标 is not None:
+            self._记录步骤(
+                操作类型枚举.鼠标移动.value,
+                目标坐标X=self._上次移动坐标[0],
+                目标坐标Y=self._上次移动坐标[1],
+            )
+            self._上次移动坐标 = None
 
     def _记录步骤(self, 操作类型: str, **参数) -> None:
         """记录一个操作步骤"""

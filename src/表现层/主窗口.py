@@ -15,7 +15,7 @@ class 主窗口类(QMainWindow):
         super().__init__()
         self.脚本列表组件 = None
         self.操作列表组件 = None
-        self.操作配置组件 = None
+
         self.执行控制组件 = None
         self.状态信息组件 = None
         self.悬浮窗 = None
@@ -55,7 +55,7 @@ class 主窗口类(QMainWindow):
         主布局 = QHBoxLayout(中央组件)
 
         右侧布局 = QVBoxLayout()
-        右侧布局.addWidget(self.操作配置组件 or QWidget())
+
         if self.执行控制组件:
             右侧布局.addWidget(self.执行控制组件)
         if self.状态信息组件:
