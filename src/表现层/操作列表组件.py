@@ -30,7 +30,7 @@ class 操作列表组件类(QWidget):
 
         self.步骤树 = QTreeWidget()
         self.步骤树.setHeaderLabels(["序号", "操作类型", "参数摘要", "延时(ms)"])
-        self.步骤树.setColumnWidth(0, 40)
+        self.步骤树.setColumnWidth(0, 50)
         self.步骤树.setColumnWidth(1, 100)
         self.步骤树.setColumnWidth(2, 200)
         self.步骤树.setColumnWidth(3, 60)
@@ -48,18 +48,21 @@ class 操作列表组件类(QWidget):
         if not self.步骤管理服务:
             return
         步骤列表 = self.步骤管理服务.查询脚本步骤(脚本标识)
-        for 步骤 in 步骤列表:
-            self._添加步骤项(步骤)
+        for 索引, 步骤 in enumerate(步骤列表, 1):
+            self._添加步骤项(步骤, 显示序号=索引)
 
     def 追加录制步骤(self, 步骤: 操作步骤数据) -> None:
         """录制过程中实时追加步骤"""
-        self._添加步骤项(步骤)
+        序号 = self.步骤树.topLevelItemCount() + 1
+        self._添加步骤项(步骤, 显示序号=序号)
 
-    def _添加步骤项(self, 步骤: 操作步骤数据) -> None:
+    def _添加步骤项(self, 步骤: 操作步骤数据, 显示序号: int = 0) -> None:
         """添加步骤到列表"""
         参数摘要 = self._生成参数摘要(步骤)
+        if 显示序号 <= 0:
+            显示序号 = self.步骤树.topLevelItemCount() + 1
         项 = QTreeWidgetItem([
-            str(步骤.排序序号),
+            str(显示序号),
             步骤.操作类型,
             参数摘要,
             str(步骤.步骤延时),
@@ -135,6 +138,8 @@ class 操作列表组件类(QWidget):
         if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
             步骤数据 = 弹窗.收集步骤数据()
             步骤数据.步骤标识 = 步骤标识
+            步骤数据.所属脚本标识 = 步骤.所属脚本标识
+            步骤数据.排序序号 = 步骤.排序序号
             self.步骤管理服务.修改步骤(步骤标识, 步骤数据)
             self.加载脚本步骤(self.当前脚本标识)
 
