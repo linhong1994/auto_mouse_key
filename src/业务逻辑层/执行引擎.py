@@ -30,15 +30,15 @@ class 执行引擎类(QObject):
             return
         if not self.步骤管理服务 or not self.回放控制器:
             return
-        步骤列表 = self.步骤管理服务.查询脚本步骤(脚本标识)
-        if not 步骤列表:
+        顶层步骤列表, 步骤树 = self.步骤管理服务.查询步骤树(脚本标识)
+        if not 顶层步骤列表:
             self.日志.warning(f"脚本{脚本标识}无操作步骤")
             return
         self.当前执行脚本标识 = 脚本标识
         self.设置状态(运行状态枚举.回放中)
-        预览列表 = [步骤预览信息(步骤序号=s.排序序号, 操作类型=s.操作类型, 参数摘要=self._生成参数摘要(s)) for s in 步骤列表]
+        预览列表 = [步骤预览信息(步骤序号=s.排序序号, 操作类型=s.操作类型, 参数摘要=self._生成参数摘要(s)) for s in 顶层步骤列表]
         self.步骤执行信号.emit(预览列表)
-        self.回放控制器.启动回放(步骤列表, 速度倍率, 循环次数)
+        self.回放控制器.启动回放(顶层步骤列表, 步骤树, 速度倍率, 循环次数)
 
     def 停止执行(self) -> None:
         """紧急停止当前执行"""
@@ -100,7 +100,7 @@ class 执行引擎类(QObject):
                 return 步骤.按键值 or 步骤.输入文本 or ""
             elif 操作类型 == 操作类型枚举.延时:
                 return f"{步骤.延时时长}ms"
-            elif 操作类型 in (操作类型枚举.OCR识别, 操作类型枚举.OCR条件判断):
+            elif 操作类型 == 操作类型枚举.OCR条件判断:
                 return f"({步骤.OCR区域左上角X},{步骤.OCR区域左上角Y})-({步骤.OCR区域右下角X},{步骤.OCR区域右下角Y})"
         except Exception:
             pass

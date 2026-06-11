@@ -127,13 +127,14 @@ class 数据库管理器类:
             OCR区域右下角X INTEGER,
             OCR区域右下角Y INTEGER,
             OCR识别语言 TEXT,
-            OCR结果变量名 TEXT,
             OCR条件类型 TEXT,
             OCR目标文本 TEXT,
             OCR逻辑关系 TEXT,
             OCR超时时间 INTEGER,
             OCR轮询间隔 INTEGER CHECK (OCR轮询间隔 IS NULL OR OCR轮询间隔 >= 200),
             OCR超时处理 TEXT,
+            父步骤标识 INTEGER DEFAULT NULL REFERENCES 操作步骤表(步骤标识) ON DELETE CASCADE,
+            分支类型 TEXT DEFAULT NULL,
             FOREIGN KEY (所属脚本标识) REFERENCES 脚本表(脚本标识) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_步骤_脚本排序 ON 操作步骤表(所属脚本标识, 排序序号);
@@ -170,9 +171,22 @@ class 数据库管理器类:
         INSERT OR IGNORE INTO Schema版本表 (版本标识, 版本号, 更新时间) VALUES (1, 1, '2026-06-10T00:00:00');
         """
         连接.executescript(初始化SQL)
+        self._执行Schema补丁(连接)
         self._初始化预置配置(连接)
         self._初始化默认热键(连接)
         连接.commit()
+
+    def _执行Schema补丁(self, 连接: sqlite3.Connection) -> None:
+        """为已存在的数据库添加新列，忽略已存在错误"""
+        补丁列表 = [
+            "ALTER TABLE 操作步骤表 ADD COLUMN 父步骤标识 INTEGER DEFAULT NULL REFERENCES 操作步骤表(步骤标识) ON DELETE CASCADE",
+            "ALTER TABLE 操作步骤表 ADD COLUMN 分支类型 TEXT DEFAULT NULL",
+        ]
+        for SQL in 补丁列表:
+            try:
+                连接.execute(SQL)
+            except sqlite3.OperationalError:
+                pass  # 列已存在，忽略
 
     def _初始化预置配置(self, 连接: sqlite3.Connection) -> None:
         """初始化预置配置项"""

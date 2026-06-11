@@ -42,12 +42,11 @@ class 步骤编辑弹窗类(QDialog):
         布局.addWidget(类型标签)
 
         self.堆叠组件 = QStackedWidget()
-        self._创建鼠标配置页()
-        self._创建按键配置页()
-        self._创建OCR识别配置页()
-        self._创建OCR条件配置页()
-        self._创建延时配置页()
-        self._创建拖拽配置页()
+        self._创建鼠标配置页()      # index 0
+        self._创建按键配置页()      # index 1
+        self._创建OCR条件配置页()   # index 2（合并区域+条件）
+        self._创建延时配置页()      # index 3
+        self._创建拖拽配置页()      # index 4
         布局.addWidget(self.堆叠组件)
 
         self._切换配置页()
@@ -64,19 +63,17 @@ class 步骤编辑弹窗类(QDialog):
         try:
             类型 = 操作类型枚举(self.操作类型)
             if 类型 == 操作类型枚举.鼠标拖拽:
-                self.堆叠组件.setCurrentIndex(5)
+                self.堆叠组件.setCurrentIndex(4)
             elif 鼠标操作类型集合.包含(类型):
                 self.堆叠组件.setCurrentIndex(0)
             elif 按键操作类型集合.包含(类型):
                 self.堆叠组件.setCurrentIndex(1)
-            elif 类型 == 操作类型枚举.OCR识别:
-                self.堆叠组件.setCurrentIndex(2)
             elif 类型 == 操作类型枚举.OCR条件判断:
-                self.堆叠组件.setCurrentIndex(3)
+                self.堆叠组件.setCurrentIndex(2)
             elif 类型 == 操作类型枚举.延时:
-                self.堆叠组件.setCurrentIndex(4)
+                self.堆叠组件.setCurrentIndex(3)
         except Exception:
-            self.堆叠组件.setCurrentIndex(4)
+            self.堆叠组件.setCurrentIndex(3)
 
     def _创建鼠标配置页(self) -> None:
         """创建鼠标操作配置页"""
@@ -120,10 +117,11 @@ class 步骤编辑弹窗类(QDialog):
         表单.addRow("步骤延时:", self.按键延时)
         self.堆叠组件.addWidget(页)
 
-    def _创建OCR识别配置页(self) -> None:
-        """创建OCR识别配置页"""
+    def _创建OCR条件配置页(self) -> None:
+        """创建OCR条件判断配置页（合并区域+条件）"""
         页 = QWidget()
         表单 = QFormLayout(页)
+        # OCR识别区域配置
         区域布局 = QHBoxLayout()
         self.OCR左上角X = QSpinBox()
         self.OCR左上角X.setRange(0, 9999)
@@ -148,18 +146,7 @@ class 步骤编辑弹窗类(QDialog):
         self.OCR识别语言 = QComboBox()
         self.OCR识别语言.addItems(["中文简体+英文", "中文繁体+英文", "英文", "日文"])
         表单.addRow("识别语言:", self.OCR识别语言)
-        self.OCR结果变量名 = QLineEdit()
-        表单.addRow("结果变量名:", self.OCR结果变量名)
-        self.OCR步骤延时 = QSpinBox()
-        self.OCR步骤延时.setRange(0, 60000)
-        self.OCR步骤延时.setSuffix(" ms")
-        表单.addRow("步骤延时:", self.OCR步骤延时)
-        self.堆叠组件.addWidget(页)
-
-    def _创建OCR条件配置页(self) -> None:
-        """创建OCR条件判断配置页"""
-        页 = QWidget()
-        表单 = QFormLayout(页)
+        # 条件配置
         self.OCR条件类型 = QComboBox()
         self.OCR条件类型.addItems(["文本匹配", "文本不匹配", "文本包含", "文字变化"])
         表单.addRow("条件类型:", self.OCR条件类型)
@@ -179,6 +166,10 @@ class 步骤编辑弹窗类(QDialog):
         self.OCR超时处理 = QComboBox()
         self.OCR超时处理.addItems(["跳过继续", "停止脚本", "执行指定步骤"])
         表单.addRow("超时处理:", self.OCR超时处理)
+        self.OCR步骤延时 = QSpinBox()
+        self.OCR步骤延时.setRange(0, 60000)
+        self.OCR步骤延时.setSuffix(" ms")
+        表单.addRow("步骤延时:", self.OCR步骤延时)
         self.堆叠组件.addWidget(页)
 
     def _创建延时配置页(self) -> None:
@@ -351,23 +342,22 @@ class 步骤编辑弹窗类(QDialog):
             步骤.按键保持时长 = self.按键保持时长.value()
             步骤.步骤延时 = self.按键延时.value()
         elif 当前索引 == 2:
+            # OCR条件判断（合并区域+条件）
             步骤.OCR区域左上角X = self.OCR左上角X.value()
             步骤.OCR区域左上角Y = self.OCR左上角Y.value()
             步骤.OCR区域右下角X = self.OCR右下角X.value()
             步骤.OCR区域右下角Y = self.OCR右下角Y.value()
             步骤.OCR识别语言 = self.OCR识别语言.currentText()
-            步骤.OCR结果变量名 = self.OCR结果变量名.text()
-            步骤.步骤延时 = self.OCR步骤延时.value()
-        elif 当前索引 == 3:
             步骤.OCR条件类型 = self.OCR条件类型.currentText()
             步骤.OCR目标文本 = self.OCR目标文本.text()
             步骤.OCR逻辑关系 = self.OCR逻辑关系.currentText()
             步骤.OCR超时时间 = self.OCR超时时间.value()
             步骤.OCR轮询间隔 = self.OCR轮询间隔.value()
             步骤.OCR超时处理 = self.OCR超时处理.currentText()
-        elif 当前索引 == 4:
+            步骤.步骤延时 = self.OCR步骤延时.value()
+        elif 当前索引 == 3:
             步骤.延时时长 = self.延时时长.value()
-        elif 当前索引 == 5:
+        elif 当前索引 == 4:
             步骤.起点坐标X = self.起点X.value()
             步骤.起点坐标Y = self.起点Y.value()
             步骤.终点坐标X = self.终点X.value()
@@ -395,21 +385,19 @@ class 步骤编辑弹窗类(QDialog):
                 self.输入文本.setText(步骤.输入文本 or "")
                 self.按键保持时长.setValue(步骤.按键保持时长 or 1000)
                 self.按键延时.setValue(步骤.步骤延时)
-            elif 类型 == 操作类型枚举.OCR识别:
+            elif 类型 == 操作类型枚举.OCR条件判断:
                 self.OCR左上角X.setValue(步骤.OCR区域左上角X or 0)
                 self.OCR左上角Y.setValue(步骤.OCR区域左上角Y or 0)
                 self.OCR右下角X.setValue(步骤.OCR区域右下角X or 0)
                 self.OCR右下角Y.setValue(步骤.OCR区域右下角Y or 0)
                 self.OCR识别语言.setCurrentText(步骤.OCR识别语言 or "中文简体+英文")
-                self.OCR结果变量名.setText(步骤.OCR结果变量名 or "")
-                self.OCR步骤延时.setValue(步骤.步骤延时)
-            elif 类型 == 操作类型枚举.OCR条件判断:
                 self.OCR条件类型.setCurrentText(步骤.OCR条件类型 or "文本匹配")
                 self.OCR目标文本.setText(步骤.OCR目标文本 or "")
                 self.OCR逻辑关系.setCurrentText(步骤.OCR逻辑关系 or "与")
                 self.OCR超时时间.setValue(步骤.OCR超时时间 or 30)
                 self.OCR轮询间隔.setValue(步骤.OCR轮询间隔 or 1000)
                 self.OCR超时处理.setCurrentText(步骤.OCR超时处理 or "跳过继续")
+                self.OCR步骤延时.setValue(步骤.步骤延时)
             elif 类型 == 操作类型枚举.延时:
                 self.延时时长.setValue(步骤.延时时长 or 0)
         except Exception:

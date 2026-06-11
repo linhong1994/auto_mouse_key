@@ -27,13 +27,14 @@ class 操作步骤数据:
     OCR区域右下角X: int | None = None
     OCR区域右下角Y: int | None = None
     OCR识别语言: str | None = None
-    OCR结果变量名: str | None = None
     OCR条件类型: str | None = None
     OCR目标文本: str | None = None
     OCR逻辑关系: str | None = None
     OCR超时时间: int | None = None
     OCR轮询间隔: int | None = None
     OCR超时处理: str | None = None
+    父步骤标识: int | None = None
+    分支类型: str | None = None
 
 
 @dataclass
