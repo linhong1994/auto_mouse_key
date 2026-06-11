@@ -1,5 +1,5 @@
 from typing import ClassVar
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Signal, Slot, QMetaObject, Qt, Q_ARG
 from src.公共.数据结构 import 热键配置数据
 from src.公共.异常定义 import 热键冲突异常, 热键注册失败异常
 from src.公共.日志管理 import 获取日志管理器
@@ -101,19 +101,28 @@ class 热键管理器类(QObject):
 
     def _处理按键按下(self, key) -> None:
         """处理按键按下事件，检测是否匹配已注册热键"""
-        键名 = self._获取键名(key)
-        if 键名:
-            self._当前按下键.add(键名)
-            self._检测热键匹配()
+        try:
+            键名 = self._获取键名(key)
+            self.日志.debug(f"按键按下: key={key}, 键名={键名}, 当前按下键={self._当前按下键}")
+            if 键名:
+                self._当前按下键.add(键名)
+                self._检测热键匹配()
+        except Exception as 异常:
+            self.日志.error(f"处理按键按下异常: key={key}, 异常={异常}")
 
     def _处理按键释放(self, key) -> None:
         """处理按键释放事件"""
-        键名 = self._获取键名(key)
-        if 键名:
-            self._当前按下键.discard(键名)
-            for 热键组合 in list(self._已触发热键):
-                if 键名 in 热键组合:
-                    self._已触发热键.discard(热键组合)
+        try:
+            键名 = self._获取键名(key)
+            if 键名:
+                self._当前按下键.discard(键名)
+                for 热键组合 in list(self._已触发热键):
+                    # 解析热键组合中的各个键名，精确匹配而非子字符串匹配
+                    组合键名列表 = self._解析热键组合(热键组合)
+                    if 键名 in 组合键名列表:
+                        self._已触发热键.discard(热键组合)
+        except Exception as 异常:
+            self.日志.error(f"处理按键释放异常: key={key}, 异常={异常}")
 
     def _检测热键匹配(self) -> None:
         """检测当前按下的键是否匹配已注册的热键组合"""
@@ -121,8 +130,10 @@ class 热键管理器类(QObject):
             if 热键组合 in self._已触发热键:
                 continue
             要求键集 = self._解析热键组合(热键组合)
+            self.日志.debug(f"检测热键匹配: 功能={功能名称}, 要求键集={要求键集}, 当前按下={self._当前按下键}")
             if 要求键集 and 要求键集.issubset(self._当前按下键):
                 self._已触发热键.add(热键组合)
+                self.日志.info(f"热键触发: {功能名称} ({热键组合})")
                 self._安全发射热键信号(功能名称)
 
     def _解析热键组合(self, 热键组合: str) -> set[str]:
@@ -143,33 +154,52 @@ class 热键管理器类(QObject):
         return 键集
 
     def _获取键名(self, key) -> str | None:
-        """从pynput按键对象获取标准化键名"""
+        """从 pynput 按键对象获取标准化键名"""
         try:
             from pynput import keyboard
             if isinstance(key, keyboard.Key):
                 原名 = key.name.lower()
-                return _PYNPUT_KEY_MAP.get(原名, 原名)
+                结果 = _PYNPUT_KEY_MAP.get(原名, 原名)
+                self.日志.debug(f"Key类型: name={key.name}, 映射结果={结果}")
+                return 结果
             elif isinstance(key, keyboard.KeyCode):
-                if key.char:
-                    return key.char.lower()
+                if key.char is not None and key.char != '':
+                    结果 = key.char.lower()
+                    self.日志.debug(f"KeyCode类型(char): char={repr(key.char)}, 结果={结果}")
+                    return 结果
                 elif key.vk:
                     vk映射 = {
                         112: "f1", 113: "f2", 114: "f3", 115: "f4",
                         116: "f5", 117: "f6", 118: "f7", 119: "f8",
                         120: "f9", 121: "f10", 122: "f11", 123: "f12",
+                        27: "esc",
                     }
-                    return vk映射.get(key.vk, None)
-        except Exception:
-            pass
+                    结果 = vk映射.get(key.vk, None)
+                    self.日志.debug(f"KeyCode类型(vk): vk={key.vk}, 结果={结果}")
+                    return 结果
+        except Exception as 异常:
+            self.日志.warning(f"获取键名失败: key={key}, 异常={异常}")
         return None
 
     def _安全发射热键信号(self, 功能名称: str) -> None:
         """在主线程中安全发射热键触发信号
 
-        pynput回调在子线程执行，Qt信号必须在主线程发射
+        pynput 回调在子线程执行，Qt 信号必须在主线程发射
+        使用 QMetaObject.invokeMethod + QueuedConnection 确保线程安全
         """
-        from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, lambda: self.热键触发信号.emit(功能名称))
+        try:
+            QMetaObject.invokeMethod(
+                self, "_发射信号槽",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(str, 功能名称),
+            )
+        except Exception as 异常:
+            self.日志.error(f"安全发射热键信号失败: {异常}")
+
+    @Slot(str)
+    def _发射信号槽(self, 功能名称: str) -> None:
+        """发射热键触发信号的槽函数，由 QMetaObject.invokeMethod 在主线程调用"""
+        self.热键触发信号.emit(功能名称)
 
     def _停止监听(self) -> None:
         """停止键盘监听"""
