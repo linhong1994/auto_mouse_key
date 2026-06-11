@@ -23,6 +23,8 @@ class 操作列表组件类(QWidget):
         self.步骤管理服务 = 步骤管理服务
         self.当前脚本标识 = 0
         self._步骤树数据: dict[int, dict[str, list]] = {}  # 缓存步骤树数据
+        self._活跃弹窗 = None  # 防止非模态弹窗被垃圾回收
+        self._待填充区域 = None  # 框选后的区域坐标
         self.日志 = 获取日志管理器("操作列表组件")
         self.初始化界面()
 
@@ -148,36 +150,96 @@ class 操作列表组件类(QWidget):
         if not self.当前脚本标识 or not self.步骤管理服务:
             return
         from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
-        # 分支步骤可以是任意操作类型，默认打开操作类型选择
-        # 这里简化处理：先弹出操作类型选择
-        from PySide6.QtWidgets import QInputDialog
-        类型列表 = [e.value for e in 操作类型枚举]
-        类型, 确定 = QInputDialog.getItem(self, "添加分支步骤", "选择操作类型:", 类型列表, 0, False)
-        if not 确定:
-            return
-        弹窗 = 步骤编辑弹窗类(类型, parent=self)
-        if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
-            步骤数据 = 弹窗.收集步骤数据()
-            if 步骤数据 and self.步骤管理服务 and self.当前脚本标识:
-                self.步骤管理服务.添加步骤(
-                    self.当前脚本标识, 步骤数据,
-                    父步骤标识=父步骤标识, 分支类型=分支类型
-                )
-                self.加载脚本步骤(self.当前脚本标识)
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
+        try:
+            类型列表 = [e.value for e in 操作类型枚举]
+            类型, 确定 = QInputDialog.getItem(self, "添加分支步骤", "选择操作类型:", 类型列表, 0, False)
+            if not 确定:
+                return
+            弹窗 = 步骤编辑弹窗类(类型, 待填充区域=self._待填充区域, parent=self)
+            self._待填充区域 = None
+            self._活跃弹窗 = 弹窗
+            弹窗.finished.connect(
+                lambda 结果: self._处理弹窗结果(结果, 弹窗, 父步骤标识=父步骤标识, 分支类型=分支类型)
+            )
+            弹窗.show()
+        except Exception as 异常:
+            self.日志.error(f"添加分支步骤失败: {异常}")
+            QMessageBox.critical(self, "添加分支步骤失败", str(异常))
 
     def _打开添加弹窗(self, 操作类型: str) -> None:
-        """打开步骤添加弹窗"""
+        """打开步骤添加弹窗（非模态，支持区域框选后重新打开）"""
         if not self.当前脚本标识:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "提示", "请先选中一个脚本")
             return
         from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
-        弹窗 = 步骤编辑弹窗类(操作类型, parent=self)
-        if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
+        try:
+            弹窗 = 步骤编辑弹窗类(操作类型, 待填充区域=self._待填充区域, parent=self)
+            self._待填充区域 = None
+            self._活跃弹窗 = 弹窗  # 防止垃圾回收
+            弹窗.finished.connect(lambda 结果: self._处理弹窗结果(结果, 弹窗))
+            弹窗.show()
+        except Exception as 异常:
+            import traceback
+            traceback.print_exc()
+            from PySide6.QtWidgets import QMessageBox
+            self.日志.error(f"添加步骤失败: {异常}")
+            QMessageBox.critical(self, "添加步骤失败", str(异常))
+
+    def _处理弹窗结果(self, 结果: int, 弹窗, 父步骤标识=None, 分支类型=None) -> None:
+        """处理弹窗关闭结果，支持区域框选后重新打开"""
+        from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
+        self._活跃弹窗 = None
+
+        if 结果 == 步骤编辑弹窗类.区域选择返回码:
+            # 区域框选流程：弹窗已关闭，等框选完成/取消后再重新打开
+            # 框选结果通过弹窗的 _框选结果区域 属性传递
+            # 连接框选完成信号，等框选结束后再处理
+            def _等框选完成后处理():
+                from PySide6.QtCore import QTimer
+                def _检查结果():
+                    浮窗 = getattr(弹窗, '_区域框选浮窗', None)
+                    if 浮窗 is not None:
+                        # 框选浮窗还在，继续等待
+                        QTimer.singleShot(100, _检查结果)
+                        return
+                    # 框选已完成或取消，执行重新打开逻辑
+                    self._重新打开弹窗(弹窗, 父步骤标识, 分支类型)
+                QTimer.singleShot(100, _检查结果)
+            _等框选完成后处理()
+            return
+
+        if 结果 == 步骤编辑弹窗类.DialogCode.Accepted:
             步骤数据 = 弹窗.收集步骤数据()
             if 步骤数据 and self.步骤管理服务 and self.当前脚本标识:
-                self.步骤管理服务.添加步骤(self.当前脚本标识, 步骤数据)
+                if 父步骤标识 is not None:
+                    self.步骤管理服务.添加步骤(
+                        self.当前脚本标识, 步骤数据,
+                        父步骤标识=父步骤标识, 分支类型=分支类型
+                    )
+                else:
+                    self.步骤管理服务.添加步骤(self.当前脚本标识, 步骤数据)
                 self.加载脚本步骤(self.当前脚本标识)
+
+    def _重新打开弹窗(self, 弹窗, 父步骤标识=None, 分支类型=None) -> None:
+        """框选完成/取消后重新打开弹窗，带框选结果数据"""
+        区域 = getattr(弹窗, '_框选结果区域', None)
+        表单数据 = getattr(弹窗, '_框选前数据', None)
+        if 区域 and 表单数据:
+            表单数据.OCR区域左上角X = 区域[0]
+            表单数据.OCR区域左上角Y = 区域[1]
+            表单数据.OCR区域右下角X = 区域[2]
+            表单数据.OCR区域右下角Y = 区域[3]
+        if 表单数据:
+            self._待填充区域 = None
+            from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类 as 弹窗类
+            新弹窗 = 弹窗类(弹窗.操作类型, 步骤数据=表单数据, parent=self)
+            self._活跃弹窗 = 新弹窗
+            新弹窗.finished.connect(
+                lambda r: self._处理弹窗结果(r, 新弹窗, 父步骤标识=父步骤标识, 分支类型=分支类型)
+            )
+            新弹窗.show()
 
     def _打开编辑弹窗(self, 步骤标识: int) -> None:
         """打开步骤编辑弹窗"""

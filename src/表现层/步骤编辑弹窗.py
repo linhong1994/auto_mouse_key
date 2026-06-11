@@ -13,12 +13,17 @@ class 步骤编辑弹窗类(QDialog):
     """步骤编辑弹窗，根据操作类型动态显示参数配置，支持坐标捕获"""
 
     _坐标捕获完成信号 = Signal(int, int)
+    _区域选中完成信号 = Signal(int, int, int, int)  # 左上X, 左上Y, 右下X, 右下Y
     _捕获取消信号 = Signal()
 
-    def __init__(self, 操作类型: str, 步骤数据: 操作步骤数据 | None = None, parent=None):
+    区域选择返回码 = 10  # 自定义返回码，表示需要进行区域框选
+
+    def __init__(self, 操作类型: str, 步骤数据: 操作步骤数据 | None = None,
+                 待填充区域: tuple | None = None, parent=None):
         super().__init__(parent)
         self.操作类型 = 操作类型
         self.步骤数据 = 步骤数据
+        self._待填充区域 = 待填充区域
         self.日志 = 获取日志管理器("步骤编辑弹窗")
         self.坐标浮窗 = None
         self._待捕获目标 = None
@@ -26,10 +31,16 @@ class 步骤编辑弹窗类(QDialog):
         self._主窗口 = None
         self._原位置 = None
         self._坐标捕获完成信号.connect(self._处理全局捕获结果)
+        self._区域选中完成信号.connect(self._处理区域选中)
         self._捕获取消信号.connect(self._取消捕获)
+        self._区域框选浮窗 = None
+        self._框选前数据 = None
+        self._框选结果区域 = None
         self.初始化界面()
         if 步骤数据:
             self._加载已有数据(步骤数据)
+        if 待填充区域:
+            self._填充区域坐标(待填充区域)
 
     def 初始化界面(self) -> None:
         """初始化界面"""
@@ -219,10 +230,35 @@ class 步骤编辑弹窗类(QDialog):
         self._待捕获目标 = 目标
         self._启动全局鼠标监听()
 
+    def _填充区域坐标(self, 区域: tuple) -> None:
+        """填充OCR区域坐标（从上次框选结果）"""
+        X1, Y1, X2, Y2 = 区域
+        self.OCR左上角X.setValue(X1)
+        self.OCR左上角Y.setValue(Y1)
+        self.OCR右下角X.setValue(X2)
+        self.OCR右下角Y.setValue(Y2)
+
     def _启动区域捕获(self) -> None:
-        """启动OCR区域框选捕获（两次点击确定左上角和右下角）"""
-        self._待捕获目标 = "OCR左上"
-        self._启动全局鼠标监听()
+        """启动OCR区域拖动框选：关闭弹窗，显示全屏覆盖层，选完后重新打开弹窗"""
+        from src.表现层.区域框选浮窗 import 区域框选浮窗类
+
+        # 保存当前表单数据
+        self._框选前数据 = self.收集步骤数据()
+
+        # 关闭弹窗（结束exec()模态循环）
+        self.done(self.区域选择返回码)
+
+        # 最小化主窗口
+        if not self._主窗口:
+            self._主窗口 = self._查找主窗口()
+        if self._主窗口:
+            self._主窗口.showMinimized()
+
+        # 显示全屏框选浮窗
+        self._区域框选浮窗 = 区域框选浮窗类()
+        self._区域框选浮窗.区域已选中.connect(self._区域选中完成信号.emit)
+        self._区域框选浮窗.框选已取消.connect(self._处理框选取消)
+        self._区域框选浮窗.启动框选()
 
     def _启动全局鼠标监听(self) -> None:
         """启动pynput全局鼠标监听，最小化主窗口，弹窗移出屏幕"""
@@ -256,7 +292,7 @@ class 步骤编辑弹窗类(QDialog):
         return None
 
     def _全局鼠标点击回调(self, x, y, button, pressed) -> None:
-        """全局鼠标点击回调，通过信号通知主线程"""
+        """全局鼠标点击回调（仅用于单点坐标捕获），通过信号通知主线程"""
         if not pressed:
             return
         if button.name == "right":
@@ -269,7 +305,7 @@ class 步骤编辑弹窗类(QDialog):
         self._坐标捕获完成信号.emit(x, y)
 
     def _处理全局捕获结果(self, X: int, Y: int) -> None:
-        """处理全局捕获的坐标结果"""
+        """处理全局捕获的单点坐标结果"""
         if self._待捕获目标 == "鼠标":
             self.鼠标坐标X.setValue(X)
             self.鼠标坐标Y.setValue(Y)
@@ -279,16 +315,25 @@ class 步骤编辑弹窗类(QDialog):
         elif self._待捕获目标 == "终点":
             self.终点X.setValue(X)
             self.终点Y.setValue(Y)
-        elif self._待捕获目标 == "OCR左上":
-            self.OCR左上角X.setValue(X)
-            self.OCR左上角Y.setValue(Y)
-            self._待捕获目标 = "OCR右下"
-            self._启动全局鼠标监听()
-            return
-        elif self._待捕获目标 == "OCR右下":
-            self.OCR右下角X.setValue(X)
-            self.OCR右下角Y.setValue(Y)
         self._停止捕获()
+
+    def _处理区域选中(self, X1: int, Y1: int, X2: int, Y2: int) -> None:
+        """处理区域框选结果，恢复主窗口"""
+        self._框选结果区域 = (X1, Y1, X2, Y2)
+        self._恢复主窗口()
+
+    def _处理框选取消(self) -> None:
+        """处理框选取消，恢复主窗口"""
+        self._框选结果区域 = None
+        self._恢复主窗口()
+
+    def _恢复主窗口(self) -> None:
+        """恢复主窗口（弹窗已通过done()关闭）"""
+        self._区域框选浮窗 = None
+        if self._主窗口:
+            self._主窗口.showNormal()
+            self._主窗口.activateWindow()
+            self._主窗口 = None
 
     def _取消捕获(self) -> None:
         """取消坐标捕获"""
@@ -305,6 +350,9 @@ class 步骤编辑弹窗类(QDialog):
         if self.坐标浮窗:
             self.坐标浮窗.停止捕获()
             self.坐标浮窗 = None
+        if self._区域框选浮窗:
+            self._区域框选浮窗.关闭框选()
+            self._区域框选浮窗 = None
         self._待捕获目标 = None
         if self._原位置:
             self.move(self._原位置)
