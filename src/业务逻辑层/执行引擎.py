@@ -18,6 +18,7 @@ class 执行引擎类(QObject):
         self.脚本管理服务 = 脚本管理服务
         self.步骤管理服务 = 步骤管理服务
         self.当前状态: 运行状态枚举 = 运行状态枚举.空闲
+        self.当前执行脚本标识: int = 0
         self._订阅者列表: list[Callable] = []
         self.日志 = 获取日志管理器("执行引擎")
         self._连接信号()
@@ -33,6 +34,7 @@ class 执行引擎类(QObject):
         if not 步骤列表:
             self.日志.warning(f"脚本{脚本标识}无操作步骤")
             return
+        self.当前执行脚本标识 = 脚本标识
         self.设置状态(运行状态枚举.回放中)
         预览列表 = [步骤预览信息(步骤序号=s.排序序号, 操作类型=s.操作类型, 参数摘要=self._生成参数摘要(s)) for s in 步骤列表]
         self.步骤执行信号.emit(预览列表)
@@ -42,6 +44,7 @@ class 执行引擎类(QObject):
         """紧急停止当前执行"""
         if self.回放控制器:
             self.回放控制器.紧急停止()
+        self.当前执行脚本标识 = 0
         self.设置状态(运行状态枚举.空闲)
 
     def 订阅状态变更(self, 回调函数: Callable) -> None:
@@ -83,6 +86,7 @@ class 执行引擎类(QObject):
 
     def _处理回放完成(self, 成功: bool) -> None:
         """处理回放完成"""
+        self.当前执行脚本标识 = 0
         self.设置状态(运行状态枚举.空闲 if 成功 else 运行状态枚举.执行失败)
 
     def _生成参数摘要(self, 步骤: 操作步骤数据) -> str:

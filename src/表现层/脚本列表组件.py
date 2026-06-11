@@ -22,6 +22,8 @@ class 脚本列表组件类(QWidget):
         super().__init__(parent)
         self.脚本管理服务 = 脚本管理服务
         self.当前脚本标识 = 0
+        self._当前运行脚本标识 = 0
+        self._当前运行状态文本 = "空闲"
         self.日志 = 获取日志管理器("脚本列表组件")
         self.初始化界面()
 
@@ -51,10 +53,11 @@ class 脚本列表组件类(QWidget):
             return
         脚本列表 = self.脚本管理服务.查询所有脚本()
         for 脚本 in 脚本列表:
+            状态文本 = self._当前运行状态文本 if 脚本.脚本标识 == self._当前运行脚本标识 else "空闲"
             项 = QTreeWidgetItem([
                 脚本.脚本名称,
                 str(脚本.步骤数量),
-                "正常",
+                状态文本,
                 脚本.修改时间[:19] if 脚本.修改时间 else "",
             ])
             项.setData(0, Qt.ItemDataRole.UserRole, 脚本.脚本标识)
@@ -70,10 +73,11 @@ class 脚本列表组件类(QWidget):
         else:
             脚本列表 = self.脚本管理服务.按名称搜索(关键词)
         for 脚本 in 脚本列表:
+            状态文本 = self._当前运行状态文本 if 脚本.脚本标识 == self._当前运行脚本标识 else "空闲"
             项 = QTreeWidgetItem([
                 脚本.脚本名称,
                 str(脚本.步骤数量),
-                "正常",
+                状态文本,
                 脚本.修改时间[:19] if 脚本.修改时间 else "",
             ])
             项.setData(0, Qt.ItemDataRole.UserRole, 脚本.脚本标识)
@@ -84,6 +88,20 @@ class 脚本列表组件类(QWidget):
         脚本标识 = 项.data(0, Qt.ItemDataRole.UserRole)
         self.当前脚本标识 = 脚本标识
         self.脚本选中信号.emit(脚本标识)
+
+    def 更新脚本运行状态(self, 脚本标识: int, 状态文本: str) -> None:
+        """更新指定脚本的运行状态显示"""
+        self._当前运行脚本标识 = 脚本标识
+        self._当前运行状态文本 = 状态文本
+        # 更新当前显示列表中对应脚本的状态列
+        根节点 = self.脚本树.invisibleRootItem()
+        for i in range(根节点.childCount()):
+            项 = 根节点.child(i)
+            项标识 = 项.data(0, Qt.ItemDataRole.UserRole)
+            if 项标识 == 脚本标识:
+                项.setText(2, 状态文本)
+            elif 项.text(2) != "空闲":
+                项.setText(2, "空闲")
 
     def _显示右键菜单(self, 位置) -> None:
         """显示右键菜单"""

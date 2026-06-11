@@ -183,6 +183,24 @@ class 悬浮窗类(QWidget):
         except Exception:
             pass
 
+    def 更新热键按钮文字(self, 热键配置: dict[str, str]) -> None:
+        """根据热键配置更新紧急停止按钮的热键提示"""
+        紧急停止热键 = self._格式化热键(热键配置.get("紧急停止", "<esc>"))
+        self.紧急停止按钮.setText(f"{紧急停止热键}紧急停止")
+
+    def _格式化热键(self, 热键组合: str) -> str:
+        """将热键组合字符串格式化为显示友好的文本"""
+        部分列表 = 热键组合.split("+")
+        结果 = []
+        for 部分 in 部分列表:
+            部分 = 部分.strip()
+            if 部分.startswith("<") and 部分.endswith(">"):
+                键名 = 部分[1:-1]
+            else:
+                键名 = 部分
+            结果.append(键名.capitalize())
+        return "+".join(结果)
+
     def mousePressEvent(self, 事件: QMouseEvent) -> None:
         """鼠标按下事件，开始拖拽"""
         if 事件.button() == Qt.MouseButton.LeftButton:

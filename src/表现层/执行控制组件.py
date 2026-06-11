@@ -7,7 +7,8 @@ class 执行控制组件类(QWidget):
     """执行控制区组件"""
 
     回放信号 = Signal(float, int)
-    停止信号 = Signal()
+    停止回放信号 = Signal()
+    紧急停止信号 = Signal()
     录制信号 = Signal()
 
     def __init__(self, parent=None):
@@ -15,7 +16,9 @@ class 执行控制组件类(QWidget):
         self.日志 = 获取日志管理器("执行控制组件")
         self._录制键名 = ""
         self._回放键名 = ""
-        self._停止键名 = ""
+        self._停止回放键名 = ""
+        self._紧急停止键名 = ""
+        self._回放中 = False
         self.初始化界面()
 
     def 初始化界面(self) -> None:
@@ -26,9 +29,9 @@ class 执行控制组件类(QWidget):
         self.回放按钮.clicked.connect(self._处理回放)
         布局.addWidget(self.回放按钮)
 
-        self.停止按钮 = QPushButton("停止")
-        self.停止按钮.clicked.connect(self.停止信号.emit)
-        布局.addWidget(self.停止按钮)
+        self.紧急停止按钮 = QPushButton("紧急停止")
+        self.紧急停止按钮.clicked.connect(self.紧急停止信号.emit)
+        布局.addWidget(self.紧急停止按钮)
 
         self.录制按钮 = QPushButton("录制")
         self.录制按钮.clicked.connect(self.录制信号.emit)
@@ -47,18 +50,25 @@ class 执行控制组件类(QWidget):
         布局.addWidget(self.循环次数)
 
     def _处理回放(self) -> None:
-        """处理回放按钮点击"""
-        速度文本 = self.速度选择.currentText()
-        速度倍率 = float(速度文本.replace("x", ""))
-        self.回放信号.emit(速度倍率, self.循环次数.value())
+        """处理回放按钮点击，回放中则停止回放，否则启动回放"""
+        if self._回放中:
+            self.停止回放信号.emit()
+        else:
+            速度文本 = self.速度选择.currentText()
+            速度倍率 = float(速度文本.replace("x", ""))
+            self.回放信号.emit(速度倍率, self.循环次数.value())
 
     def 更新热键按钮文字(self, 热键配置: dict[str, str]) -> None:
         """根据热键配置更新按钮文字，显示对应的热键提示"""
         self._录制键名 = self._格式化热键(热键配置.get("启动录制", "<f9>"))
         self._回放键名 = self._格式化热键(热键配置.get("启动回放", "<f10>"))
-        self._停止键名 = self._格式化热键(热键配置.get("紧急停止", "<esc>"))
-        self.回放按钮.setText(f"{self._回放键名}回放")
-        self.停止按钮.setText(f"{self._停止键名}停止")
+        self._停止回放键名 = self._格式化热键(热键配置.get("停止回放", "<f10>"))
+        self._紧急停止键名 = self._格式化热键(热键配置.get("紧急停止", "<esc>"))
+        if self._回放中:
+            self.回放按钮.setText(f"{self._停止回放键名}停止回放")
+        else:
+            self.回放按钮.setText(f"{self._回放键名}回放")
+        self.紧急停止按钮.setText(f"{self._紧急停止键名}紧急停止")
         self.录制按钮.setText(f"{self._录制键名}录制")
 
     def _格式化热键(self, 热键组合: str) -> str:
@@ -80,13 +90,14 @@ class 执行控制组件类(QWidget):
     def 设置录制状态(self, 录制中: bool) -> None:
         """更新录制按钮状态"""
         if 录制中:
-            self.录制按钮.setText(f"{self._停止键名}停止录制")
+            self.录制按钮.setText(f"{self._录制键名}停止录制")
         else:
             self.录制按钮.setText(f"{self._录制键名}录制")
 
     def 设置回放状态(self, 回放中: bool) -> None:
-        """更新回放按钮状态"""
+        """更新回放按钮状态，回放中切换为停止回放"""
+        self._回放中 = 回放中
         if 回放中:
-            self.回放按钮.setText(f"{self._停止键名}停止回放")
+            self.回放按钮.setText(f"{self._停止回放键名}停止回放")
         else:
             self.回放按钮.setText(f"{self._回放键名}回放")
