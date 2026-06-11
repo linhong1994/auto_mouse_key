@@ -47,14 +47,15 @@ class 操作列表组件类(QWidget):
         self.步骤树.clear()
         if not self.步骤管理服务:
             return
+        self.步骤管理服务.规范化排序序号(脚本标识)
         步骤列表 = self.步骤管理服务.查询脚本步骤(脚本标识)
-        for 索引, 步骤 in enumerate(步骤列表, 1):
-            self._添加步骤项(步骤, 显示序号=索引)
+        for 步骤 in 步骤列表:
+            self._添加步骤项(步骤, 显示序号=步骤.排序序号)
 
     def 追加录制步骤(self, 步骤: 操作步骤数据) -> None:
         """录制过程中实时追加步骤"""
-        序号 = self.步骤树.topLevelItemCount() + 1
-        self._添加步骤项(步骤, 显示序号=序号)
+        显示序号 = 步骤.排序序号 or (self.步骤树.topLevelItemCount() + 1)
+        self._添加步骤项(步骤, 显示序号=显示序号)
 
     def _添加步骤项(self, 步骤: 操作步骤数据, 显示序号: int = 0) -> None:
         """添加步骤到列表"""
@@ -68,6 +69,7 @@ class 操作列表组件类(QWidget):
             str(步骤.步骤延时),
         ])
         项.setData(0, Qt.ItemDataRole.UserRole, 步骤.步骤标识)
+        项.setData(0, Qt.ItemDataRole.UserRole + 1, 显示序号)
         self.步骤树.addTopLevelItem(项)
 
     def _生成参数摘要(self, 步骤: 操作步骤数据) -> str:
@@ -93,6 +95,7 @@ class 操作列表组件类(QWidget):
         菜单 = QMenu(self)
         if 项:
             步骤标识 = 项.data(0, Qt.ItemDataRole.UserRole)
+            排序序号 = 项.data(0, Qt.ItemDataRole.UserRole + 1)
             索引 = self.步骤树.indexOfTopLevelItem(项)
             添加菜单 = 菜单.addMenu("添加")
             for 操作类型 in 操作类型枚举:
@@ -101,9 +104,9 @@ class 操作列表组件类(QWidget):
             菜单.addAction("编辑", lambda: self._打开编辑弹窗(步骤标识))
             菜单.addAction("复制", lambda: self._处理复制())
             if 索引 > 0:
-                菜单.addAction("上移", lambda: self.步骤排序信号.emit(索引 + 1, 索引))
+                菜单.addAction("上移", lambda: self.步骤排序信号.emit(排序序号, 排序序号 - 1))
             if 索引 < self.步骤树.topLevelItemCount() - 1:
-                菜单.addAction("下移", lambda: self.步骤排序信号.emit(索引 + 1, 索引 + 2))
+                菜单.addAction("下移", lambda: self.步骤排序信号.emit(排序序号, 排序序号 + 1))
             菜单.addSeparator()
             菜单.addAction("删除", lambda: self.步骤删除信号.emit(步骤标识))
         else:
@@ -147,10 +150,10 @@ class 操作列表组件类(QWidget):
         """处理复制步骤"""
         当前项 = self.步骤树.currentItem()
         if 当前项:
-            索引 = self.步骤树.indexOfTopLevelItem(当前项) + 1
+            排序序号 = 当前项.data(0, Qt.ItemDataRole.UserRole + 1)
             步骤标识 = 当前项.data(0, Qt.ItemDataRole.UserRole)
             if 步骤标识 and self.步骤管理服务:
-                self.步骤管理服务.复制步骤(步骤标识, 索引)
+                self.步骤管理服务.复制步骤(步骤标识, 排序序号 + 1)
                 self.加载脚本步骤(self.当前脚本标识)
 
     def _处理步骤选中(self, 项: QTreeWidgetItem, 列: int) -> None:
