@@ -18,7 +18,6 @@ class 主窗口类(QMainWindow):
         self.步骤详情组件 = None
 
         self.执行控制组件 = None
-        self.状态信息组件 = None
         self.悬浮窗 = None
         self.系统托盘 = None
         self.热键管理器 = None
@@ -55,13 +54,11 @@ class 主窗口类(QMainWindow):
         中央组件 = QWidget()
         主布局 = QHBoxLayout(中央组件)
 
-        # 顶部控制栏：执行控制 + 状态信息，一行水平排列
+        # 顶部控制栏：执行控制按钮
         顶部布局 = QHBoxLayout()
         顶部布局.setContentsMargins(0, 0, 0, 0)
         if self.执行控制组件:
             顶部布局.addWidget(self.执行控制组件)
-        if self.状态信息组件:
-            顶部布局.addWidget(self.状态信息组件)
         顶部组件 = QWidget()
         顶部组件.setLayout(顶部布局)
 
@@ -89,7 +86,7 @@ class 主窗口类(QMainWindow):
         主分割器.addWidget(右侧组件)
         主分割器.setStretchFactor(0, 1)
         主分割器.setStretchFactor(1, 3)
-        主分割器.setSizes([360, 640])
+        主分割器.setSizes([420, 580])
 
         主布局.addWidget(主分割器)
         self.setCentralWidget(中央组件)

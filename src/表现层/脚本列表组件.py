@@ -34,10 +34,11 @@ class 脚本列表组件类(QWidget):
         布局.addWidget(self.搜索框)
 
         self.脚本树 = QTreeWidget()
-        self.脚本树.setHeaderLabels(["脚本名称", "步骤数", "修改时间"])
+        self.脚本树.setHeaderLabels(["脚本名称", "步骤数", "状态", "修改时间"])
         self.脚本树.setColumnWidth(0, 150)
         self.脚本树.setColumnWidth(1, 50)
-        self.脚本树.setColumnWidth(2, 130)
+        self.脚本树.setColumnWidth(2, 60)
+        self.脚本树.setColumnWidth(3, 130)
         self.脚本树.itemClicked.connect(self._处理脚本选中)
         self.脚本树.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.脚本树.customContextMenuRequested.connect(self._显示右键菜单)
@@ -53,6 +54,7 @@ class 脚本列表组件类(QWidget):
             项 = QTreeWidgetItem([
                 脚本.脚本名称,
                 str(脚本.步骤数量),
+                "正常",
                 脚本.修改时间[:19] if 脚本.修改时间 else "",
             ])
             项.setData(0, Qt.ItemDataRole.UserRole, 脚本.脚本标识)
@@ -71,6 +73,7 @@ class 脚本列表组件类(QWidget):
             项 = QTreeWidgetItem([
                 脚本.脚本名称,
                 str(脚本.步骤数量),
+                "正常",
                 脚本.修改时间[:19] if 脚本.修改时间 else "",
             ])
             项.setData(0, Qt.ItemDataRole.UserRole, 脚本.脚本标识)
