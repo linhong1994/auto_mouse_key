@@ -15,6 +15,7 @@ class 主窗口类(QMainWindow):
         super().__init__()
         self.脚本列表组件 = None
         self.操作列表组件 = None
+        self.步骤详情组件 = None
 
         self.执行控制组件 = None
         self.状态信息组件 = None
@@ -50,29 +51,45 @@ class 主窗口类(QMainWindow):
         self._菜单对象 = [设置菜单]
 
     def 初始化中央区域(self) -> None:
-        """初始化中央区域布局：左-脚本列表，中-操作列表，右-操作详情"""
+        """初始化中央区域布局：左-脚本列表，右-（控制栏 + 操作列表+详情）"""
         中央组件 = QWidget()
         主布局 = QHBoxLayout(中央组件)
 
-        右侧布局 = QVBoxLayout()
-
+        # 顶部控制栏：执行控制 + 状态信息，一行水平排列
+        顶部布局 = QHBoxLayout()
+        顶部布局.setContentsMargins(0, 0, 0, 0)
         if self.执行控制组件:
-            右侧布局.addWidget(self.执行控制组件)
+            顶部布局.addWidget(self.执行控制组件)
         if self.状态信息组件:
-            右侧布局.addWidget(self.状态信息组件)
+            顶部布局.addWidget(self.状态信息组件)
+        顶部组件 = QWidget()
+        顶部组件.setLayout(顶部布局)
+
+        # 下方分割区：左-操作列表，右-步骤详情
+        下方分割器 = QSplitter(Qt.Orientation.Horizontal)
+        if self.操作列表组件:
+            下方分割器.addWidget(self.操作列表组件)
+        if self.步骤详情组件:
+            下方分割器.addWidget(self.步骤详情组件)
+        下方分割器.setStretchFactor(0, 3)
+        下方分割器.setStretchFactor(1, 1)
+        下方分割器.setSizes([500, 200])
+
+        # 右侧整体：顶部控制栏 + 下方分割区，垂直堆叠
+        右侧布局 = QVBoxLayout()
+        右侧布局.setContentsMargins(0, 0, 0, 0)
+        右侧布局.addWidget(顶部组件)
+        右侧布局.addWidget(下方分割器, 1)
         右侧组件 = QWidget()
         右侧组件.setLayout(右侧布局)
 
         主分割器 = QSplitter(Qt.Orientation.Horizontal)
         if self.脚本列表组件:
             主分割器.addWidget(self.脚本列表组件)
-        if self.操作列表组件:
-            主分割器.addWidget(self.操作列表组件)
         主分割器.addWidget(右侧组件)
         主分割器.setStretchFactor(0, 1)
         主分割器.setStretchFactor(1, 3)
-        主分割器.setStretchFactor(2, 4)
-        主分割器.setSizes([180, 350, 470])
+        主分割器.setSizes([360, 640])
 
         主布局.addWidget(主分割器)
         self.setCentralWidget(中央组件)
@@ -82,10 +99,6 @@ class 主窗口类(QMainWindow):
         self.状态栏 = QStatusBar()
         self.setStatusBar(self.状态栏)
         self.状态栏.showMessage("就绪")
-
-    def 更新鼠标坐标显示(self, 坐标X: int, 坐标Y: int) -> None:
-        """实时更新鼠标坐标显示"""
-        self.状态栏.showMessage(f"坐标: X={坐标X}, Y={坐标Y}")
 
     def 更新执行状态显示(self, 状态: 运行状态枚举, 进度: str) -> None:
         """更新执行状态和进度显示"""

@@ -30,7 +30,7 @@ class 操作列表组件类(QWidget):
 
         self.步骤树 = QTreeWidget()
         self.步骤树.setHeaderLabels(["序号", "操作类型", "参数摘要", "延时(ms)"])
-        self.步骤树.setColumnWidth(0, 50)
+        self.步骤树.setColumnWidth(0, 60)
         self.步骤树.setColumnWidth(1, 100)
         self.步骤树.setColumnWidth(2, 200)
         self.步骤树.setColumnWidth(3, 60)

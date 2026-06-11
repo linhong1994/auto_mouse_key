@@ -13,6 +13,9 @@ class 执行控制组件类(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.日志 = 获取日志管理器("执行控制组件")
+        self._录制键名 = ""
+        self._回放键名 = ""
+        self._停止键名 = ""
         self.初始化界面()
 
     def 初始化界面(self) -> None:
@@ -49,10 +52,41 @@ class 执行控制组件类(QWidget):
         速度倍率 = float(速度文本.replace("x", ""))
         self.回放信号.emit(速度倍率, self.循环次数.value())
 
+    def 更新热键按钮文字(self, 热键配置: dict[str, str]) -> None:
+        """根据热键配置更新按钮文字，显示对应的热键提示"""
+        self._录制键名 = self._格式化热键(热键配置.get("启动录制", "<f9>"))
+        self._回放键名 = self._格式化热键(热键配置.get("启动回放", "<f10>"))
+        self._停止键名 = self._格式化热键(热键配置.get("紧急停止", "<esc>"))
+        self.回放按钮.setText(f"{self._回放键名}回放")
+        self.停止按钮.setText(f"{self._停止键名}停止")
+        self.录制按钮.setText(f"{self._录制键名}录制")
+
+    def _格式化热键(self, 热键组合: str) -> str:
+        """将热键组合字符串格式化为显示友好的文本
+
+        例: <f9> → F9, <ctrl>+<f9> → Ctrl+F9, <esc> → Esc
+        """
+        部分列表 = 热键组合.split("+")
+        结果 = []
+        for 部分 in 部分列表:
+            部分 = 部分.strip()
+            if 部分.startswith("<") and 部分.endswith(">"):
+                键名 = 部分[1:-1]
+            else:
+                键名 = 部分
+            结果.append(键名.capitalize())
+        return "+".join(结果)
+
     def 设置录制状态(self, 录制中: bool) -> None:
         """更新录制按钮状态"""
-        self.录制按钮.setText("停止录制" if 录制中 else "录制")
+        if 录制中:
+            self.录制按钮.setText(f"{self._停止键名}停止录制")
+        else:
+            self.录制按钮.setText(f"{self._录制键名}录制")
 
     def 设置回放状态(self, 回放中: bool) -> None:
         """更新回放按钮状态"""
-        self.回放按钮.setText("停止回放" if 回放中 else "回放")
+        if 回放中:
+            self.回放按钮.setText(f"{self._停止键名}停止回放")
+        else:
+            self.回放按钮.setText(f"{self._回放键名}回放")
