@@ -21,10 +21,8 @@ class OCR识别服务类:
     def _初始化引擎(self) -> None:
         """初始化RapidOCR引擎"""
         try:
-            模型目录 = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "rapidocr")
-            os.makedirs(模型目录, exist_ok=True)
             from rapidocr import RapidOCR
-            self.引擎 = RapidOCR(model_path_dir=模型目录)
+            self.引擎 = RapidOCR()
             self.引擎可用 = True
             self.日志.info("OCR引擎初始化成功（RapidOCR）")
         except Exception as 异常:
