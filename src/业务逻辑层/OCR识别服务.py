@@ -38,6 +38,7 @@ class OCR识别服务类:
         开始时间 = time.perf_counter()
         try:
             图像 = self._截取屏幕区域(区域坐标)
+            self._保存识别区域图片(图像)
             结果 = self._调用引擎识别(图像, 识别语言)
             耗时 = int((time.perf_counter() - 开始时间) * 1000)
             结果.识别耗时 = 耗时
@@ -76,61 +77,145 @@ class OCR识别服务类:
         return self.历史记录[-条数:]
 
     def _截取屏幕区域(self, 区域坐标: tuple[int, int, int, int]):
-        """截取指定屏幕区域的图像"""
+        """截取指定屏幕区域的图像，返回numpy数组，自动处理DPI缩放"""
         左上角X, 左上角Y, 右下角X, 右下角Y = 区域坐标
-        return ImageGrab.grab(bbox=(左上角X, 左上角Y, 右下角X, 右下角Y))
+        缩放比 = self._获取DPI缩放比()
+        物理坐标 = (int(左上角X * 缩放比), int(左上角Y * 缩放比),
+                    int(右下角X * 缩放比), int(右下角Y * 缩放比))
+        图像 = ImageGrab.grab(bbox=物理坐标)
+        import numpy as np
+        return np.array(图像)
+
+    def _获取DPI缩放比(self) -> float:
+        """获取系统DPI缩放比例"""
+        try:
+            import ctypes
+            桌面DC = ctypes.windll.user32.GetDC(0)
+            水平DPI = ctypes.windll.gdi32.GetDeviceCaps(桌面DC, 88)
+            ctypes.windll.user32.ReleaseDC(0, 桌面DC)
+            return 水平DPI / 96.0
+        except Exception:
+            return 1.0
+
+    def _保存识别区域图片(self, 图像) -> None:
+        """保存OCR识别区域截图到日志目录，用于分析识别失败原因"""
+        try:
+            from pathlib import Path
+            日志目录 = Path("logs/ocr_screenshots")
+            日志目录.mkdir(parents=True, exist_ok=True)
+            时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            文件路径 = 日志目录 / f"ocr_{时间戳}.png"
+            import cv2
+            cv2.imwrite(str(文件路径), cv2.cvtColor(图像, cv2.COLOR_RGB2BGR))
+            self.日志.info(f"OCR识别区域截图已保存: {文件路径}")
+        except Exception as 异常:
+            self.日志.warning(f"保存OCR识别区域截图失败: {异常}")
 
     def _调用引擎识别(self, 图像, 语言配置: str) -> OCR识别结果:
         """调用RapidOCR引擎执行识别"""
         if not self.引擎可用:
             raise OCR引擎异常("OCR引擎不可用")
         try:
-            引擎结果, _ = self.引擎(图像)
-            文字行列表 = []
-            全部文本 = []
-            置信度总和 = 0.0
-            行数 = 0
-            if 引擎结果:
-                for 行数据 in 引擎结果:
-                    坐标, 文本, 置信度 = 行数据
-                    全部文本.append(文本)
-                    置信度总和 += 置信度
-                    行数 += 1
-                    左上角 = 坐标[0]
-                    右下角 = 坐标[2]
-                    文字行列表.append(文字行信息(
-                        行文本=文本,
-                        行坐标X=int(左上角[0]),
-                        行坐标Y=int(左上角[1]),
-                        行宽度=int(右下角[0] - 左上角[0]),
-                        行高度=int(右下角[1] - 左上角[1]),
-                        行置信度=置信度,
-                    ))
-            平均置信度 = 置信度总和 / 行数 if 行数 > 0 else 0.0
-            置信度阈值 = 30
-            if self.配置DAO:
-                try:
-                    置信度阈值 = int(self.配置DAO.查询配置("OCR置信度阈值", "30"))
-                except Exception:
-                    pass
-            return OCR识别结果(
-                识别文本="\n".join(全部文本),
-                文字行列表=文字行列表,
-                平均置信度=平均置信度,
-                低可信度=平均置信度 < 置信度阈值 / 100.0,
-            )
+            引擎输出 = self.引擎(图像)
+
+            if hasattr(引擎输出, 'txts'):
+                return self._解析新版本输出(引擎输出)
+            elif isinstance(引擎输出, tuple):
+                return self._解析旧版本输出(引擎输出)
+            else:
+                raise OCR引擎异常(f"未知的OCR输出类型: {type(引擎输出)}")
+        except OCR引擎异常:
+            raise
         except Exception as 异常:
             self.引擎可用 = False
             raise OCR引擎异常(f"OCR引擎调用失败: {异常}", 异常)
+
+    def _解析新版本输出(self, 输出) -> OCR识别结果:
+        """解析RapidOCR 3.x的RapidOCROutput对象"""
+        文字行列表 = []
+        全部文本 = []
+        置信度总和 = 0.0
+        行数 = 0
+        if 输出.txts is not None and 输出.boxes is not None and 输出.scores is not None:
+            for i, (文本, 置信度) in enumerate(zip(输出.txts, 输出.scores)):
+                全部文本.append(文本)
+                置信度总和 += 置信度
+                行数 += 1
+                坐标 = 输出.boxes[i]
+                左上角 = 坐标[0]
+                右下角 = 坐标[2]
+                文字行列表.append(文字行信息(
+                    行文本=文本,
+                    行坐标X=int(左上角[0]),
+                    行坐标Y=int(左上角[1]),
+                    行宽度=int(右下角[0] - 左上角[0]),
+                    行高度=int(右下角[1] - 左上角[1]),
+                    行置信度=置信度,
+                ))
+        平均置信度 = 置信度总和 / 行数 if 行数 > 0 else 0.0
+        置信度阈值 = self._获取置信度阈值()
+        return OCR识别结果(
+            识别文本="\n".join(全部文本),
+            文字行列表=文字行列表,
+            平均置信度=平均置信度,
+            低可信度=平均置信度 < 置信度阈值 / 100.0,
+        )
+
+    def _解析旧版本输出(self, 输出) -> OCR识别结果:
+        """解析RapidOCR 1.x/2.x的(result, elapsed)元组输出"""
+        引擎结果, _ = 输出
+        文字行列表 = []
+        全部文本 = []
+        置信度总和 = 0.0
+        行数 = 0
+        if 引擎结果:
+            for 行数据 in 引擎结果:
+                坐标, 文本, 置信度 = 行数据
+                全部文本.append(文本)
+                置信度总和 += 置信度
+                行数 += 1
+                左上角 = 坐标[0]
+                右下角 = 坐标[2]
+                文字行列表.append(文字行信息(
+                    行文本=文本,
+                    行坐标X=int(左上角[0]),
+                    行坐标Y=int(左上角[1]),
+                    行宽度=int(右下角[0] - 左上角[0]),
+                    行高度=int(右下角[1] - 左上角[1]),
+                    行置信度=置信度,
+                ))
+        平均置信度 = 置信度总和 / 行数 if 行数 > 0 else 0.0
+        置信度阈值 = self._获取置信度阈值()
+        return OCR识别结果(
+            识别文本="\n".join(全部文本),
+            文字行列表=文字行列表,
+            平均置信度=平均置信度,
+            低可信度=平均置信度 < 置信度阈值 / 100.0,
+        )
+
+    def _获取置信度阈值(self) -> int:
+        """获取OCR置信度阈值配置"""
+        置信度阈值 = 30
+        if self.配置DAO:
+            try:
+                置信度阈值 = int(self.配置DAO.查询配置("OCR置信度阈值", "30"))
+            except Exception:
+                pass
+        return 置信度阈值
 
     def _校验识别区域(self, 区域坐标: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         """校验并裁剪识别区域到屏幕有效范围"""
         左上角X, 左上角Y, 右下角X, 右下角Y = 区域坐标
         屏幕宽度, 屏幕高度 = ImageGrab.grab().size
-        左上角X = max(0, min(左上角X, 屏幕宽度))
-        左上角Y = max(0, min(左上角Y, 屏幕高度))
-        右下角X = max(左上角X, min(右下角X, 屏幕宽度))
-        右下角Y = max(左上角Y, min(右下角Y, 屏幕高度))
+        缩放比 = self._获取DPI缩放比()
+        物理宽度 = 屏幕宽度
+        物理高度 = 屏幕高度
+        逻辑宽度 = int(物理宽度 / 缩放比)
+        逻辑高度 = int(物理高度 / 缩放比)
+        左上角X = max(0, min(左上角X, 逻辑宽度))
+        左上角Y = max(0, min(左上角Y, 逻辑高度))
+        右下角X = max(左上角X, min(右下角X, 逻辑宽度))
+        右下角Y = max(左上角Y, min(右下角Y, 逻辑高度))
         return (左上角X, 左上角Y, 右下角X, 右下角Y)
 
     def _记录历史(self, 区域坐标: tuple, 识别语言: str, 结果: OCR识别结果) -> None:
