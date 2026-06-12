@@ -57,7 +57,6 @@ class 操作列表组件类(QWidget):
         self._步骤树数据 = 步骤树  # 保存引用供右键菜单使用
         for 步骤 in 顶层步骤列表:
             项 = self._添加步骤项(步骤, 显示序号=步骤.排序序号)
-            # 添加子步骤（分支）
             if 步骤.步骤标识 in 步骤树:
                 分支字典 = 步骤树[步骤.步骤标识]
                 for 分支类型 in ("是", "否"):
@@ -65,6 +64,7 @@ class 操作列表组件类(QWidget):
                     for 子步骤 in 子步骤列表:
                         子项 = self._添加步骤项(子步骤, 显示序号=子步骤.排序序号, 分支前缀=分支类型)
                         项.addChild(子项)
+                项.setExpanded(True)
 
     def 追加录制步骤(self, 步骤: 操作步骤数据) -> None:
         """录制过程中实时追加步骤（仅追加顶层步骤）"""
@@ -204,18 +204,12 @@ class 操作列表组件类(QWidget):
         self._活跃弹窗 = None
 
         if 结果 == 步骤编辑弹窗类.区域选择返回码:
-            # 区域框选流程：弹窗已关闭，等框选完成/取消后再重新打开
-            # 框选结果通过弹窗的 _框选结果区域 属性传递
-            # 连接框选完成信号，等框选结束后再处理
             def _等框选完成后处理():
                 from PySide6.QtCore import QTimer
                 def _检查结果():
-                    浮窗 = getattr(弹窗, '_区域框选浮窗', None)
-                    if 浮窗 is not None:
-                        # 框选浮窗还在，继续等待
+                    if not getattr(弹窗, '_框选已完成', False):
                         QTimer.singleShot(100, _检查结果)
                         return
-                    # 框选已完成或取消，执行重新打开逻辑
                     self._重新打开弹窗(弹窗, 父步骤标识, 分支类型)
                 QTimer.singleShot(100, _检查结果)
             _等框选完成后处理()
@@ -246,17 +240,19 @@ class 操作列表组件类(QWidget):
             表单数据.OCR区域左上角Y = 区域[1]
             表单数据.OCR区域右下角X = 区域[2]
             表单数据.OCR区域右下角Y = 区域[3]
-        if 表单数据:
-            self._待填充区域 = None
-            from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类 as 弹窗类
-            新弹窗 = 弹窗类(弹窗.操作类型, 步骤数据=表单数据,
-                                脚本管理服务=self.脚本管理服务,
-                                当前脚本标识=self.当前脚本标识, parent=self)
-            self._活跃弹窗 = 新弹窗
-            新弹窗.finished.connect(
-                lambda r: self._处理弹窗结果(r, 新弹窗, 父步骤标识=父步骤标识, 分支类型=分支类型)
-            )
-            新弹窗.show()
+        if not 表单数据:
+            return
+        from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类 as 弹窗类
+        新弹窗 = 弹窗类(弹窗.操作类型, 步骤数据=表单数据,
+                            脚本管理服务=self.脚本管理服务,
+                            当前脚本标识=self.当前脚本标识, parent=self)
+        self._活跃弹窗 = 新弹窗
+        新弹窗.finished.connect(
+            lambda r: self._处理弹窗结果(r, 新弹窗, 父步骤标识=父步骤标识, 分支类型=分支类型)
+        )
+        新弹窗.show()
+        新弹窗.raise_()
+        新弹窗.activateWindow()
 
     def _打开编辑弹窗(self, 步骤标识: int) -> None:
         """打开步骤编辑弹窗"""
@@ -269,17 +265,62 @@ class 操作列表组件类(QWidget):
         弹窗 = 步骤编辑弹窗类(步骤.操作类型, 步骤数据=步骤,
                                     脚本管理服务=self.脚本管理服务,
                                     当前脚本标识=self.当前脚本标识, parent=self)
-        if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
+        弹窗.finished.connect(lambda 结果: self._处理编辑弹窗结果(结果, 弹窗, 步骤标识))
+        self._活跃弹窗 = 弹窗
+        弹窗.show()
+
+    def _处理编辑弹窗结果(self, 结果: int, 弹窗, 步骤标识: int) -> None:
+        """处理编辑弹窗关闭结果，支持区域框选后重新打开"""
+        from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
+        self._活跃弹窗 = None
+
+        if 结果 == 步骤编辑弹窗类.区域选择返回码:
+            def _等框选完成后处理():
+                from PySide6.QtCore import QTimer
+                def _检查结果():
+                    if not getattr(弹窗, '_框选已完成', False):
+                        QTimer.singleShot(100, _检查结果)
+                        return
+                    self._重新打开编辑弹窗(弹窗, 步骤标识)
+                QTimer.singleShot(100, _检查结果)
+            _等框选完成后处理()
+            return
+
+        if 结果 == 步骤编辑弹窗类.DialogCode.Accepted:
             步骤数据 = 弹窗.收集步骤数据()
             步骤数据.步骤标识 = 步骤标识
-            步骤数据.所属脚本标识 = 步骤.所属脚本标识
-            步骤数据.排序序号 = 步骤.排序序号
-            try:
-                self.步骤管理服务.修改步骤(步骤标识, 步骤数据)
-                self.加载脚本步骤(self.当前脚本标识)
-            except Exception as 异常:
-                from PySide6.QtWidgets import QMessageBox
-                QMessageBox.warning(self, "修改步骤失败", str(异常))
+            if self.步骤管理服务:
+                try:
+                    原步骤 = self.步骤管理服务.步骤DAO.查询ById(步骤标识)
+                    if 原步骤:
+                        步骤数据.所属脚本标识 = 原步骤.所属脚本标识
+                        步骤数据.排序序号 = 原步骤.排序序号
+                    self.步骤管理服务.修改步骤(步骤标识, 步骤数据)
+                    self.加载脚本步骤(self.当前脚本标识)
+                except Exception as 异常:
+                    from PySide6.QtWidgets import QMessageBox
+                    QMessageBox.warning(self, "修改步骤失败", str(异常))
+
+    def _重新打开编辑弹窗(self, 弹窗, 步骤标识: int) -> None:
+        """框选完成/取消后重新打开编辑弹窗，带框选结果数据"""
+        区域 = getattr(弹窗, '_框选结果区域', None)
+        表单数据 = getattr(弹窗, '_框选前数据', None)
+        if 区域 and 表单数据:
+            表单数据.OCR区域左上角X = 区域[0]
+            表单数据.OCR区域左上角Y = 区域[1]
+            表单数据.OCR区域右下角X = 区域[2]
+            表单数据.OCR区域右下角Y = 区域[3]
+        if not 表单数据:
+            return
+        from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类 as 弹窗类
+        新弹窗 = 弹窗类(弹窗.操作类型, 步骤数据=表单数据,
+                            脚本管理服务=self.脚本管理服务,
+                            当前脚本标识=self.当前脚本标识, parent=self)
+        self._活跃弹窗 = 新弹窗
+        新弹窗.finished.connect(lambda r: self._处理编辑弹窗结果(r, 新弹窗, 步骤标识))
+        新弹窗.show()
+        新弹窗.raise_()
+        新弹窗.activateWindow()
 
     def _处理复制(self) -> None:
         """处理复制步骤"""

@@ -39,6 +39,7 @@ class 步骤编辑弹窗类(QDialog):
         self._区域框选浮窗 = None
         self._框选前数据 = None
         self._框选结果区域 = None
+        self._框选已完成 = False
         self.初始化界面()
         if 步骤数据:
             self._加载已有数据(步骤数据)
@@ -362,11 +363,13 @@ class 步骤编辑弹窗类(QDialog):
     def _处理区域选中(self, X1: int, Y1: int, X2: int, Y2: int) -> None:
         """处理区域框选结果，恢复主窗口"""
         self._框选结果区域 = (X1, Y1, X2, Y2)
+        self._框选已完成 = True
         self._恢复主窗口()
 
     def _处理框选取消(self) -> None:
         """处理框选取消，恢复主窗口"""
         self._框选结果区域 = None
+        self._框选已完成 = True
         self._恢复主窗口()
 
     def _恢复主窗口(self) -> None:

@@ -77,6 +77,8 @@ class 区域框选浮窗类(QWidget):
             self.关闭框选()
             if X2 - X1 > 5 and Y2 - Y1 > 5:
                 self.区域已选中.emit(X1, Y1, X2, Y2)
+            else:
+                self.框选已取消.emit()
 
     def keyPressEvent(self, 事件) -> None:
         if 事件.key() == Qt.Key.Key_Escape:
