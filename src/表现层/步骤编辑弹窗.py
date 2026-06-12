@@ -19,11 +19,14 @@ class 步骤编辑弹窗类(QDialog):
     区域选择返回码 = 10  # 自定义返回码，表示需要进行区域框选
 
     def __init__(self, 操作类型: str, 步骤数据: 操作步骤数据 | None = None,
-                 待填充区域: tuple | None = None, parent=None):
+                 待填充区域: tuple | None = None, 脚本管理服务=None,
+                 当前脚本标识: int = 0, parent=None):
         super().__init__(parent)
         self.操作类型 = 操作类型
         self.步骤数据 = 步骤数据
         self._待填充区域 = 待填充区域
+        self.脚本管理服务 = 脚本管理服务
+        self.当前脚本标识 = 当前脚本标识
         self.日志 = 获取日志管理器("步骤编辑弹窗")
         self.坐标浮窗 = None
         self._待捕获目标 = None
@@ -58,6 +61,7 @@ class 步骤编辑弹窗类(QDialog):
         self._创建OCR条件配置页()   # index 2（合并区域+条件）
         self._创建延时配置页()      # index 3
         self._创建拖拽配置页()      # index 4
+        self._创建调用脚本配置页()  # index 5
         布局.addWidget(self.堆叠组件)
 
         self._切换配置页()
@@ -83,6 +87,8 @@ class 步骤编辑弹窗类(QDialog):
                 self.堆叠组件.setCurrentIndex(2)
             elif 类型 == 操作类型枚举.延时:
                 self.堆叠组件.setCurrentIndex(3)
+            elif 类型 == 操作类型枚举.调用脚本:
+                self.堆叠组件.setCurrentIndex(5)
         except Exception:
             self.堆叠组件.setCurrentIndex(3)
 
@@ -224,6 +230,42 @@ class 步骤编辑弹窗类(QDialog):
         self.拖拽延时.setSuffix(" ms")
         表单.addRow("步骤延时:", self.拖拽延时)
         self.堆叠组件.addWidget(页)
+
+    def _创建调用脚本配置页(self) -> None:
+        """创建调用脚本配置页"""
+        页 = QWidget()
+        表单 = QFormLayout(页)
+        self.调用脚本选择 = QComboBox()
+        self._加载可选脚本列表()
+        表单.addRow("选择脚本:", self.调用脚本选择)
+        提示标签 = QLabel("将执行所选脚本的全部步骤")
+        提示标签.setStyleSheet("color: gray; font-size: 11px;")
+        表单.addRow("", 提示标签)
+        警告标签 = QLabel("注意：不能添加自身或产生循环嵌套")
+        警告标签.setStyleSheet("color: #cc6600; font-size: 11px;")
+        表单.addRow("", 警告标签)
+        self.调用脚本延时 = QSpinBox()
+        self.调用脚本延时.setRange(0, 60000)
+        self.调用脚本延时.setSuffix(" ms")
+        表单.addRow("步骤延时:", self.调用脚本延时)
+        self.堆叠组件.addWidget(页)
+
+    def _加载可选脚本列表(self) -> None:
+        """加载可选脚本列表，排除当前脚本"""
+        self.调用脚本选择.clear()
+        self.调用脚本选择.addItem("-- 请选择脚本 --", 0)
+        if not self.脚本管理服务:
+            return
+        try:
+            脚本列表 = self.脚本管理服务.查询所有脚本()
+            for 脚本 in 脚本列表:
+                if 脚本.脚本标识 != self.当前脚本标识:
+                    self.调用脚本选择.addItem(
+                        f"{脚本.脚本名称} ({脚本.步骤数量}步)",
+                        脚本.脚本标识
+                    )
+        except Exception as 异常:
+            self.日志.warning(f"加载脚本列表失败: {异常}")
 
     def _启动坐标捕获(self, 目标: str) -> None:
         """启动坐标捕获模式"""
@@ -411,6 +453,9 @@ class 步骤编辑弹窗类(QDialog):
             步骤.终点坐标X = self.终点X.value()
             步骤.终点坐标Y = self.终点Y.value()
             步骤.步骤延时 = self.拖拽延时.value()
+        elif 当前索引 == 5:
+            步骤.引用脚本标识 = self.调用脚本选择.currentData() or None
+            步骤.步骤延时 = self.调用脚本延时.value()
         return 步骤
 
     def _加载已有数据(self, 步骤: 操作步骤数据) -> None:
@@ -448,6 +493,12 @@ class 步骤编辑弹窗类(QDialog):
                 self.OCR步骤延时.setValue(步骤.步骤延时)
             elif 类型 == 操作类型枚举.延时:
                 self.延时时长.setValue(步骤.延时时长 or 0)
+            elif 类型 == 操作类型枚举.调用脚本:
+                if 步骤.引用脚本标识:
+                    索引 = self.调用脚本选择.findData(步骤.引用脚本标识)
+                    if 索引 >= 0:
+                        self.调用脚本选择.setCurrentIndex(索引)
+                self.调用脚本延时.setValue(步骤.步骤延时)
         except Exception:
             pass
 

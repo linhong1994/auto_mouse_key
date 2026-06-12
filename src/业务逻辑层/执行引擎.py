@@ -102,6 +102,12 @@ class 执行引擎类(QObject):
                 return f"{步骤.延时时长}ms"
             elif 操作类型 == 操作类型枚举.OCR条件判断:
                 return f"({步骤.OCR区域左上角X},{步骤.OCR区域左上角Y})-({步骤.OCR区域右下角X},{步骤.OCR区域右下角Y})"
+            elif 操作类型 == 操作类型枚举.调用脚本:
+                if self.脚本管理服务 and 步骤.引用脚本标识:
+                    脚本 = self.脚本管理服务.脚本DAO.查询ById(步骤.引用脚本标识)
+                    if 脚本:
+                        return 脚本.脚本名称
+                return f"脚本ID:{步骤.引用脚本标识}"
         except Exception:
             pass
         return ""

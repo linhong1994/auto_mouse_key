@@ -13,12 +13,13 @@ class 回放控制器类(QObject):
     回放状态变更 = Signal(str, str)
     回放完成 = Signal(bool)
 
-    def __init__(self, 鼠标执行器=None, 按键执行器=None, OCR服务=None, OCR条件判断器=None):
+    def __init__(self, 鼠标执行器=None, 按键执行器=None, OCR服务=None, OCR条件判断器=None, 步骤管理服务=None):
         super().__init__()
         self.鼠标执行器 = 鼠标执行器
         self.按键执行器 = 按键执行器
         self.OCR服务 = OCR服务
         self.OCR条件判断器 = OCR条件判断器
+        self.步骤管理服务 = 步骤管理服务
         self.悬浮窗 = None
         self.配置DAO = None
         self._执行线程 = None
@@ -26,6 +27,7 @@ class 回放控制器类(QObject):
         self._暂停标志 = False
         self._暂停事件 = threading.Event()
         self._暂停事件.set()
+        self._当前速度倍率 = 1.0
         self.日志 = 获取日志管理器("回放控制器")
 
     def 启动回放(self, 顶层步骤列表: list[操作步骤数据],
@@ -48,6 +50,7 @@ class 回放控制器类(QObject):
             args=(顶层步骤列表, 步骤树 or {}, 速度倍率, 循环次数),
             daemon=True,
         )
+        self._当前速度倍率 = 速度倍率
         self._执行线程.start()
 
     def 暂停回放(self) -> None:
@@ -127,6 +130,8 @@ class 回放控制器类(QObject):
                 if 步骤.延时时长:
                     time.sleep(步骤.延时时长 / 1000.0)
                 成功 = True
+            elif 操作类型 == 操作类型枚举.调用脚本:
+                成功 = self._执行调用脚本(步骤)
             else:
                 成功 = False
             耗时 = int((time.perf_counter() - 开始时间) * 1000)
@@ -137,6 +142,25 @@ class 回放控制器类(QObject):
         finally:
             if 避让中:
                 self._恢复悬浮窗()
+
+    def _执行调用脚本(self, 步骤: 操作步骤数据) -> bool:
+        """执行调用脚本：加载并执行被引用脚本的所有步骤"""
+        if not self.步骤管理服务:
+            self.日志.warning("调用脚本失败：步骤管理服务未配置")
+            return False
+        if not 步骤.引用脚本标识:
+            self.日志.warning("调用脚本失败：未指定引用脚本标识")
+            return False
+        try:
+            顶层步骤列表, 步骤树 = self.步骤管理服务.查询步骤树(步骤.引用脚本标识)
+            if not 顶层步骤列表:
+                self.日志.warning(f"被调用脚本{步骤.引用脚本标识}无步骤")
+                return True
+            self._执行步骤树(顶层步骤列表, 步骤树, self._当前速度倍率)
+            return not self._停止标志
+        except Exception as 异常:
+            self.日志.error(f"调用脚本执行失败: {异常}")
+            return False
 
     def _执行避让(self, 步骤: 操作步骤数据, 操作类型: 操作类型枚举) -> bool:
         """检测并执行悬浮窗自动避让，返回是否正在避让"""

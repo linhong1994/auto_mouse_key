@@ -1,6 +1,6 @@
 from datetime import datetime
 from src.公共.数据结构 import 脚本表数据, 脚本概要信息, 操作步骤数据
-from src.公共.异常定义 import 脚本名称重复异常, 脚本名称为空异常
+from src.公共.异常定义 import 脚本名称重复异常, 脚本名称为空异常, 脚本循环引用异常
 from src.公共.日志管理 import 获取日志管理器
 
 
@@ -116,3 +116,37 @@ class 脚本管理服务类:
         if self.定时任务DAO:
             return self.定时任务DAO.按脚本查询(脚本标识)
         return []
+
+    def 检查循环引用(self, 当前脚本标识: int, 目标脚本标识: int) -> bool:
+        """检查将目标脚本作为步骤添加到当前脚本是否会产生循环引用
+
+        规则：
+        - 不能引用自身
+        - 如果目标脚本（或其任何嵌套引用脚本）引用了当前脚本，则禁止
+
+        返回:
+            True 表示会产生循环引用，False 表示安全
+        """
+        if 当前脚本标识 == 目标脚本标识:
+            return True
+        已访问 = set()
+        return self._深度检查引用(目标脚本标识, 当前脚本标识, 已访问)
+
+    def _深度检查引用(self, 检查脚本标识: int, 禁止脚本标识: int, 已访问: set) -> bool:
+        """递归检查脚本引用链是否包含禁止脚本
+
+        返回 True 表示存在循环引用
+        """
+        if 检查脚本标识 == 禁止脚本标识:
+            return True
+        if 检查脚本标识 in 已访问:
+            return False
+        已访问.add(检查脚本标识)
+        if not self.步骤DAO:
+            return False
+        步骤列表 = self.步骤DAO.查询By脚本全部(检查脚本标识)
+        for 步骤 in 步骤列表:
+            if 步骤.操作类型 == "调用脚本" and 步骤.引用脚本标识:
+                if self._深度检查引用(步骤.引用脚本标识, 禁止脚本标识, 已访问):
+                    return True
+        return False

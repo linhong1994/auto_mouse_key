@@ -35,6 +35,7 @@ class 操作步骤数据:
     OCR超时处理: str | None = None
     父步骤标识: int | None = None
     分支类型: str | None = None
+    引用脚本标识: int | None = None
 
 
 @dataclass

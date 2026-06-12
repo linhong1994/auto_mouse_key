@@ -135,6 +135,7 @@ class 数据库管理器类:
             OCR超时处理 TEXT,
             父步骤标识 INTEGER DEFAULT NULL REFERENCES 操作步骤表(步骤标识) ON DELETE CASCADE,
             分支类型 TEXT DEFAULT NULL,
+            引用脚本标识 INTEGER DEFAULT NULL,
             FOREIGN KEY (所属脚本标识) REFERENCES 脚本表(脚本标识) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_步骤_脚本排序 ON 操作步骤表(所属脚本标识, 排序序号);
@@ -181,6 +182,7 @@ class 数据库管理器类:
         补丁列表 = [
             "ALTER TABLE 操作步骤表 ADD COLUMN 父步骤标识 INTEGER DEFAULT NULL REFERENCES 操作步骤表(步骤标识) ON DELETE CASCADE",
             "ALTER TABLE 操作步骤表 ADD COLUMN 分支类型 TEXT DEFAULT NULL",
+            "ALTER TABLE 操作步骤表 ADD COLUMN 引用脚本标识 INTEGER DEFAULT NULL",
         ]
         for SQL in 补丁列表:
             try:

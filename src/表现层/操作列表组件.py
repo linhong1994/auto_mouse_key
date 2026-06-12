@@ -18,9 +18,10 @@ class 操作列表组件类(QWidget):
     步骤排序信号 = Signal(int, int)
     步骤保存信号 = Signal(object)
 
-    def __init__(self, 步骤管理服务=None, parent=None):
+    def __init__(self, 步骤管理服务=None, 脚本管理服务=None, parent=None):
         super().__init__(parent)
         self.步骤管理服务 = 步骤管理服务
+        self.脚本管理服务 = 脚本管理服务
         self.当前脚本标识 = 0
         self._步骤树数据: dict[int, dict[str, list]] = {}  # 缓存步骤树数据
         self._活跃弹窗 = None  # 防止非模态弹窗被垃圾回收
@@ -101,6 +102,12 @@ class 操作列表组件类(QWidget):
                 return f"{步骤.延时时长}ms"
             elif 操作类型 == 操作类型枚举.OCR条件判断:
                 return f"({步骤.OCR区域左上角X},{步骤.OCR区域左上角Y})"
+            elif 操作类型 == 操作类型枚举.调用脚本:
+                if self.脚本管理服务 and 步骤.引用脚本标识:
+                    脚本 = self.脚本管理服务.脚本DAO.查询ById(步骤.引用脚本标识)
+                    if 脚本:
+                        return 脚本.脚本名称
+                return f"脚本ID:{步骤.引用脚本标识}"
         except Exception:
             pass
         return ""
@@ -156,7 +163,9 @@ class 操作列表组件类(QWidget):
             类型, 确定 = QInputDialog.getItem(self, "添加分支步骤", "选择操作类型:", 类型列表, 0, False)
             if not 确定:
                 return
-            弹窗 = 步骤编辑弹窗类(类型, 待填充区域=self._待填充区域, parent=self)
+            弹窗 = 步骤编辑弹窗类(类型, 待填充区域=self._待填充区域,
+                                        脚本管理服务=self.脚本管理服务,
+                                        当前脚本标识=self.当前脚本标识, parent=self)
             self._待填充区域 = None
             self._活跃弹窗 = 弹窗
             弹窗.finished.connect(
@@ -175,7 +184,9 @@ class 操作列表组件类(QWidget):
             return
         from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
         try:
-            弹窗 = 步骤编辑弹窗类(操作类型, 待填充区域=self._待填充区域, parent=self)
+            弹窗 = 步骤编辑弹窗类(操作类型, 待填充区域=self._待填充区域,
+                                        脚本管理服务=self.脚本管理服务,
+                                        当前脚本标识=self.当前脚本标识, parent=self)
             self._待填充区域 = None
             self._活跃弹窗 = 弹窗  # 防止垃圾回收
             弹窗.finished.connect(lambda 结果: self._处理弹窗结果(结果, 弹窗))
@@ -213,14 +224,18 @@ class 操作列表组件类(QWidget):
         if 结果 == 步骤编辑弹窗类.DialogCode.Accepted:
             步骤数据 = 弹窗.收集步骤数据()
             if 步骤数据 and self.步骤管理服务 and self.当前脚本标识:
-                if 父步骤标识 is not None:
-                    self.步骤管理服务.添加步骤(
-                        self.当前脚本标识, 步骤数据,
-                        父步骤标识=父步骤标识, 分支类型=分支类型
-                    )
-                else:
-                    self.步骤管理服务.添加步骤(self.当前脚本标识, 步骤数据)
-                self.加载脚本步骤(self.当前脚本标识)
+                try:
+                    if 父步骤标识 is not None:
+                        self.步骤管理服务.添加步骤(
+                            self.当前脚本标识, 步骤数据,
+                            父步骤标识=父步骤标识, 分支类型=分支类型
+                        )
+                    else:
+                        self.步骤管理服务.添加步骤(self.当前脚本标识, 步骤数据)
+                    self.加载脚本步骤(self.当前脚本标识)
+                except Exception as 异常:
+                    from PySide6.QtWidgets import QMessageBox
+                    QMessageBox.warning(self, "添加步骤失败", str(异常))
 
     def _重新打开弹窗(self, 弹窗, 父步骤标识=None, 分支类型=None) -> None:
         """框选完成/取消后重新打开弹窗，带框选结果数据"""
@@ -234,7 +249,9 @@ class 操作列表组件类(QWidget):
         if 表单数据:
             self._待填充区域 = None
             from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类 as 弹窗类
-            新弹窗 = 弹窗类(弹窗.操作类型, 步骤数据=表单数据, parent=self)
+            新弹窗 = 弹窗类(弹窗.操作类型, 步骤数据=表单数据,
+                                脚本管理服务=self.脚本管理服务,
+                                当前脚本标识=self.当前脚本标识, parent=self)
             self._活跃弹窗 = 新弹窗
             新弹窗.finished.connect(
                 lambda r: self._处理弹窗结果(r, 新弹窗, 父步骤标识=父步骤标识, 分支类型=分支类型)
@@ -249,14 +266,20 @@ class 操作列表组件类(QWidget):
         if not 步骤:
             return
         from src.表现层.步骤编辑弹窗 import 步骤编辑弹窗类
-        弹窗 = 步骤编辑弹窗类(步骤.操作类型, 步骤数据=步骤, parent=self)
+        弹窗 = 步骤编辑弹窗类(步骤.操作类型, 步骤数据=步骤,
+                                    脚本管理服务=self.脚本管理服务,
+                                    当前脚本标识=self.当前脚本标识, parent=self)
         if 弹窗.exec() == 步骤编辑弹窗类.DialogCode.Accepted:
             步骤数据 = 弹窗.收集步骤数据()
             步骤数据.步骤标识 = 步骤标识
             步骤数据.所属脚本标识 = 步骤.所属脚本标识
             步骤数据.排序序号 = 步骤.排序序号
-            self.步骤管理服务.修改步骤(步骤标识, 步骤数据)
-            self.加载脚本步骤(self.当前脚本标识)
+            try:
+                self.步骤管理服务.修改步骤(步骤标识, 步骤数据)
+                self.加载脚本步骤(self.当前脚本标识)
+            except Exception as 异常:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "修改步骤失败", str(异常))
 
     def _处理复制(self) -> None:
         """处理复制步骤"""
