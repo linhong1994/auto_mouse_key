@@ -75,6 +75,7 @@ class 脚本列表组件类(QWidget):
             ])
             项.setData(0, Qt.ItemDataRole.UserRole, 脚本.脚本标识)
             self.脚本树.addTopLevelItem(项)
+        self._恢复选中()
 
     def 执行搜索(self, 关键词: str) -> None:
         """执行脚本搜索"""
@@ -95,6 +96,7 @@ class 脚本列表组件类(QWidget):
             ])
             项.setData(0, Qt.ItemDataRole.UserRole, 脚本.脚本标识)
             self.脚本树.addTopLevelItem(项)
+        self._恢复选中()
 
     def _获取状态文本(self, 脚本标识: int) -> str:
         """获取指定脚本的状态文本，综合考虑运行状态和定时任务状态"""
@@ -184,6 +186,31 @@ class 脚本列表组件类(QWidget):
         脚本标识 = 项.data(0, Qt.ItemDataRole.UserRole)
         self.当前脚本标识 = 脚本标识
         self.脚本选中信号.emit(脚本标识)
+
+    def 选中脚本(self, 脚本标识: int) -> None:
+        """选中指定脚本并触发选中信号"""
+        self.当前脚本标识 = 脚本标识
+        self._恢复选中()
+
+    def _恢复选中(self) -> None:
+        """恢复脚本列表选中状态，选中当前脚本标识对应的项"""
+        if self.当前脚本标识 == 0:
+            if self.脚本树.topLevelItemCount() > 0:
+                self.脚本树.setCurrentItem(self.脚本树.topLevelItem(0))
+                self.当前脚本标识 = self.脚本树.topLevelItem(0).data(0, Qt.ItemDataRole.UserRole)
+                self.脚本选中信号.emit(self.当前脚本标识)
+            return
+        根节点 = self.脚本树.invisibleRootItem()
+        for i in range(根节点.childCount()):
+            项 = 根节点.child(i)
+            if 项.data(0, Qt.ItemDataRole.UserRole) == self.当前脚本标识:
+                self.脚本树.setCurrentItem(项)
+                self.脚本选中信号.emit(self.当前脚本标识)
+                return
+        if self.脚本树.topLevelItemCount() > 0:
+            self.脚本树.setCurrentItem(self.脚本树.topLevelItem(0))
+            self.当前脚本标识 = self.脚本树.topLevelItem(0).data(0, Qt.ItemDataRole.UserRole)
+            self.脚本选中信号.emit(self.当前脚本标识)
 
     def 更新脚本运行状态(self, 脚本标识: int, 状态文本: str) -> None:
         """更新指定脚本的运行状态显示"""
