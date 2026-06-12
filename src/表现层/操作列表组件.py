@@ -34,11 +34,12 @@ class 操作列表组件类(QWidget):
         布局 = QVBoxLayout(self)
 
         self.步骤树 = QTreeWidget()
-        self.步骤树.setHeaderLabels(["序号", "操作类型", "参数摘要", "延时(ms)"])
-        self.步骤树.setColumnWidth(0, 60)
+        self.步骤树.setHeaderLabels(["序号", "步骤名称", "操作类型", "参数摘要", "延时(ms)"])
+        self.步骤树.setColumnWidth(0, 40)
         self.步骤树.setColumnWidth(1, 100)
-        self.步骤树.setColumnWidth(2, 200)
-        self.步骤树.setColumnWidth(3, 60)
+        self.步骤树.setColumnWidth(2, 90)
+        self.步骤树.setColumnWidth(3, 160)
+        self.步骤树.setColumnWidth(4, 60)
         self.步骤树.itemClicked.connect(self._处理步骤选中)
         self.步骤树.itemDoubleClicked.connect(self._处理步骤双击编辑)
         self.步骤树.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
@@ -77,8 +78,10 @@ class 操作列表组件类(QWidget):
         if 显示序号 <= 0:
             显示序号 = self.步骤树.topLevelItemCount() + 1
         显示类型 = f"[{分支前缀}] {步骤.操作类型}" if 分支前缀 else 步骤.操作类型
+        显示名称 = 步骤.步骤名称 or 步骤.操作类型
         项 = QTreeWidgetItem([
             str(显示序号),
+            显示名称,
             显示类型,
             参数摘要,
             str(步骤.步骤延时),
@@ -333,10 +336,41 @@ class 操作列表组件类(QWidget):
                 self.加载脚本步骤(self.当前脚本标识)
 
     def _处理步骤选中(self, 项: QTreeWidgetItem, 列: int) -> None:
-        """处理步骤选中事件"""
+        """处理步骤选中事件，发射选中信号并显示屏幕坐标定位"""
         步骤标识 = 项.data(0, Qt.ItemDataRole.UserRole)
         if 步骤标识:
             self.步骤选中信号.emit(步骤标识)
+            self._显示坐标定位(步骤标识)
+
+    def _显示坐标定位(self, 步骤标识: int) -> None:
+        """在屏幕上显示步骤坐标定位标识"""
+        if not self.步骤管理服务:
+            return
+        步骤 = self.步骤管理服务.步骤DAO.查询ById(步骤标识)
+        if not 步骤:
+            return
+        from src.公共.枚举定义 import 操作类型枚举, 鼠标操作类型集合
+        from src.表现层.坐标定位浮窗 import 坐标定位浮窗类
+        if not hasattr(self, '_坐标定位浮窗'):
+            self._坐标定位浮窗 = 坐标定位浮窗类()
+        self._坐标定位浮窗.关闭定位()
+        名称 = 步骤.步骤名称 or 步骤.操作类型
+        try:
+            操作类型 = 操作类型枚举(步骤.操作类型)
+            if 操作类型 == 操作类型枚举.OCR条件判断:
+                if 步骤.OCR区域右下角X and 步骤.OCR区域右下角Y:
+                    self._坐标定位浮窗.显示区域定位(
+                        步骤.OCR区域右下角X, 步骤.OCR区域右下角Y, 名称)
+            elif 操作类型 == 操作类型枚举.鼠标拖拽:
+                if 步骤.起点坐标X and 步骤.起点坐标Y:
+                    self._坐标定位浮窗.显示单点定位(
+                        步骤.起点坐标X, 步骤.起点坐标Y, 名称)
+            elif 鼠标操作类型集合.包含(操作类型):
+                if 步骤.目标坐标X and 步骤.目标坐标Y:
+                    self._坐标定位浮窗.显示单点定位(
+                        步骤.目标坐标X, 步骤.目标坐标Y, 名称)
+        except Exception:
+            pass
 
     def _处理步骤双击编辑(self, 项: QTreeWidgetItem, 列: int) -> None:
         """双击步骤打开编辑弹窗"""

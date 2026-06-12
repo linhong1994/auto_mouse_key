@@ -179,6 +179,7 @@ class 数据库管理器类:
             "ALTER TABLE 脚本表 ADD COLUMN 定时循环间隔 INTEGER CHECK (定时循环间隔 IS NULL OR (定时循环间隔 >= 1 AND 定时循环间隔 <= 1440))",
             "ALTER TABLE 脚本表 ADD COLUMN 定时每日时间 TEXT",
             "ALTER TABLE 脚本表 ADD COLUMN 定时启用 INTEGER DEFAULT 0 CHECK (定时启用 IN (0, 1))",
+            "ALTER TABLE 操作步骤表 ADD COLUMN 步骤名称 TEXT",
         ]
         for SQL in 补丁列表:
             try:

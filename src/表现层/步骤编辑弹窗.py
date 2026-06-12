@@ -56,6 +56,12 @@ class 步骤编辑弹窗类(QDialog):
         类型标签.setStyleSheet("font-weight: bold; font-size: 14px;")
         布局.addWidget(类型标签)
 
+        名称布局 = QHBoxLayout()
+        名称布局.addWidget(QLabel("步骤名称:"))
+        self.步骤名称输入 = QLineEdit(self.操作类型)
+        名称布局.addWidget(self.步骤名称输入)
+        布局.addLayout(名称布局)
+
         self.堆叠组件 = QStackedWidget()
         self._创建鼠标配置页()      # index 0
         self._创建按键配置页()      # index 1
@@ -423,6 +429,7 @@ class 步骤编辑弹窗类(QDialog):
     def 收集步骤数据(self) -> 操作步骤数据:
         """从界面收集步骤数据"""
         步骤 = 操作步骤数据(操作类型=self.操作类型)
+        步骤.步骤名称 = self.步骤名称输入.text() or self.操作类型
         当前索引 = self.堆叠组件.currentIndex()
         if 当前索引 == 0:
             步骤.目标坐标X = self.鼠标坐标X.value()
@@ -464,6 +471,7 @@ class 步骤编辑弹窗类(QDialog):
     def _加载已有数据(self, 步骤: 操作步骤数据) -> None:
         """加载已有步骤数据"""
         try:
+            self.步骤名称输入.setText(步骤.步骤名称 or 步骤.操作类型)
             类型 = 操作类型枚举(步骤.操作类型)
             if 类型 == 操作类型枚举.鼠标拖拽:
                 self.起点X.setValue(步骤.起点坐标X or 0)

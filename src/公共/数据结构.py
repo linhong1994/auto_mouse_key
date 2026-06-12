@@ -8,6 +8,7 @@ class 操作步骤数据:
     步骤标识: int = 0
     所属脚本标识: int = 0
     操作类型: str = ""
+    步骤名称: str | None = None
     排序序号: int = 0
     目标坐标X: int | None = None
     目标坐标Y: int | None = None
