@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem, QPushButton, QMenu, QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal, QTimer
-from src.公共.数据结构 import 脚本概要信息
+from src.公共.数据结构 import 脚本概要信息, 脚本表数据
 from src.公共.日志管理 import 获取日志管理器
 
 
@@ -28,7 +28,7 @@ class 脚本列表组件类(QWidget):
         self._当前运行状态文本 = "空闲"
         # 定时任务状态跟踪
         self._定时任务脚本标识: int = 0
-        self._定时任务标识: int = 0
+
         self._定时下次触发时间 = None   # datetime对象
         self._定时触发类型: str = ""
         self._定时循环间隔: int = 0
@@ -104,23 +104,21 @@ class 脚本列表组件类(QWidget):
             return "定时中..."
         return "空闲"
 
-    def 设置定时任务状态(self, 脚本标识: int, 任务标识: int, 任务数据=None) -> None:
+    def 设置定时任务状态(self, 脚本标识: int, 脚本数据: 脚本表数据 | None = None) -> None:
         """设置定时任务状态，启动倒计时显示"""
         from datetime import datetime
         self._定时任务脚本标识 = 脚本标识
-        self._定时任务标识 = 任务标识
-        if 任务数据:
-            self._定时触发类型 = 任务数据.触发类型
-            self._定时循环间隔 = 任务数据.循环间隔 or 0
-            self._定时每日时间 = 任务数据.每日时间 or ""
-            # 计算下次触发时间
-            if 任务数据.触发类型 == "单次执行" and 任务数据.触发时间:
-                self._定时下次触发时间 = datetime.fromisoformat(任务数据.触发时间)
-            elif 任务数据.触发类型 == "循环间隔" and 任务数据.循环间隔:
+        if 脚本数据:
+            self._定时触发类型 = 脚本数据.定时触发类型 or ""
+            self._定时循环间隔 = 脚本数据.定时循环间隔 or 0
+            self._定时每日时间 = 脚本数据.定时每日时间 or ""
+            if 脚本数据.定时触发类型 == "单次执行" and 脚本数据.定时触发时间:
+                self._定时下次触发时间 = datetime.fromisoformat(脚本数据.定时触发时间)
+            elif 脚本数据.定时触发类型 == "循环间隔" and 脚本数据.定时循环间隔:
                 from datetime import timedelta
-                self._定时下次触发时间 = datetime.now() + timedelta(minutes=任务数据.循环间隔)
-            elif 任务数据.触发类型 == "每日定时" and 任务数据.每日时间:
-                时, 分 = map(int, 任务数据.每日时间.split(":"))
+                self._定时下次触发时间 = datetime.now() + timedelta(minutes=脚本数据.定时循环间隔)
+            elif 脚本数据.定时触发类型 == "每日定时" and 脚本数据.定时每日时间:
+                时, 分 = map(int, 脚本数据.定时每日时间.split(":"))
                 今日触发 = datetime.now().replace(hour=时, minute=分, second=0, microsecond=0)
                 if 今日触发 > datetime.now():
                     self._定时下次触发时间 = 今日触发
@@ -134,7 +132,7 @@ class 脚本列表组件类(QWidget):
         """清除定时任务状态，停止倒计时"""
         self._倒计时定时器.stop()
         self._定时任务脚本标识 = 0
-        self._定时任务标识 = 0
+
         self._定时下次触发时间 = None
         self._定时触发类型 = ""
         self._定时循环间隔 = 0

@@ -7,11 +7,10 @@ from src.公共.日志管理 import 获取日志管理器
 class 脚本管理服务类:
     """操作脚本管理服务"""
 
-    def __init__(self, 脚本DAO=None, 步骤DAO=None, JSON序列化器=None, 定时任务DAO=None):
+    def __init__(self, 脚本DAO=None, 步骤DAO=None, JSON序列化器=None):
         self.脚本DAO = 脚本DAO
         self.步骤DAO = 步骤DAO
         self.JSON序列化器 = JSON序列化器
-        self.定时任务DAO = 定时任务DAO
         self.日志 = 获取日志管理器("脚本管理服务")
 
     def 查询所有脚本(self, 排序字段: str = "修改时间", 排序方向: str = "降序") -> list[脚本概要信息]:
@@ -111,11 +110,6 @@ class 脚本管理服务类:
             self.步骤DAO.批量插入(步骤列表)
         return 脚本标识
 
-    def 查询关联定时任务(self, 脚本标识: int) -> list:
-        """查询引用该脚本的定时任务列表"""
-        if self.定时任务DAO:
-            return self.定时任务DAO.按脚本查询(脚本标识)
-        return []
 
     def 检查循环引用(self, 当前脚本标识: int, 目标脚本标识: int) -> bool:
         """检查将目标脚本作为步骤添加到当前脚本是否会产生循环引用

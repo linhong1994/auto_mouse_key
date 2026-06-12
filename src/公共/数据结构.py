@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from src.公共.枚举定义 import 操作类型枚举, 运行状态枚举, OCR条件类型枚举, OCR超时处理枚举, 定时触发类型枚举, 定时任务状态枚举
+from src.公共.枚举定义 import 操作类型枚举, 运行状态枚举, OCR条件类型枚举, OCR超时处理枚举, 定时触发类型枚举
 
 
 @dataclass
@@ -57,23 +57,15 @@ class 脚本表数据:
     脚本描述: str = ""
     创建时间: str = ""
     修改时间: str = ""
+    定时触发类型: str | None = None
+    定时触发时间: str | None = None
+    定时循环间隔: int | None = None
+    定时每日时间: str | None = None
+    定时启用: bool = False
 
 
 @dataclass
-class 定时任务数据:
-    """定时任务数据结构，对应定时任务表的一条记录"""
-    任务标识: int = 0
-    任务名称: str = ""
-    关联脚本标识: int = 0
-    触发类型: str = "单次执行"
-    触发时间: str | None = None
-    循环间隔: int | None = None
-    每日时间: str | None = None
-    启用状态: bool = True
-    任务状态: str = "待执行"
 
-
-@dataclass
 class 热键配置数据:
     """热键配置数据结构，对应热键配置表的一条记录"""
     配置标识: int = 0

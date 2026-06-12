@@ -99,7 +99,12 @@ class 数据库管理器类:
             脚本名称 TEXT UNIQUE NOT NULL CHECK (length(脚本名称) <= 100),
             脚本描述 TEXT CHECK (脚本描述 IS NULL OR length(脚本描述) <= 500),
             创建时间 TEXT NOT NULL,
-            修改时间 TEXT NOT NULL
+            修改时间 TEXT NOT NULL,
+            定时触发类型 TEXT CHECK (定时触发类型 IS NULL OR 定时触发类型 IN ('单次执行', '循环间隔', '每日定时')),
+            定时触发时间 TEXT,
+            定时循环间隔 INTEGER CHECK (定时循环间隔 IS NULL OR (定时循环间隔 >= 1 AND 定时循环间隔 <= 1440)),
+            定时每日时间 TEXT,
+            定时启用 INTEGER DEFAULT 0 CHECK (定时启用 IN (0, 1))
         );
         CREATE INDEX IF NOT EXISTS idx_脚本_名称 ON 脚本表(脚本名称);
         CREATE INDEX IF NOT EXISTS idx_脚本_修改时间 ON 脚本表(修改时间);
@@ -141,20 +146,6 @@ class 数据库管理器类:
         CREATE INDEX IF NOT EXISTS idx_步骤_脚本排序 ON 操作步骤表(所属脚本标识, 排序序号);
         CREATE INDEX IF NOT EXISTS idx_步骤_脚本 ON 操作步骤表(所属脚本标识);
 
-        CREATE TABLE IF NOT EXISTS 定时任务表 (
-            任务标识 INTEGER PRIMARY KEY AUTOINCREMENT,
-            任务名称 TEXT NOT NULL CHECK (length(任务名称) <= 100),
-            关联脚本标识 INTEGER NOT NULL,
-            触发类型 TEXT NOT NULL CHECK (触发类型 IN ('单次执行', '循环间隔', '每日定时')),
-            触发时间 TEXT,
-            循环间隔 INTEGER CHECK (循环间隔 IS NULL OR (循环间隔 >= 1 AND 循环间隔 <= 1440)),
-            每日时间 TEXT,
-            启用状态 INTEGER DEFAULT 1 CHECK (启用状态 IN (0, 1)),
-            任务状态 TEXT DEFAULT '待执行' CHECK (任务状态 IN ('待执行', '执行中', '已完成', '已禁用')),
-            FOREIGN KEY (关联脚本标识) REFERENCES 脚本表(脚本标识) ON DELETE SET NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_定时_脚本 ON 定时任务表(关联脚本标识);
-        CREATE INDEX IF NOT EXISTS idx_定时_启用状态 ON 定时任务表(启用状态);
 
         CREATE TABLE IF NOT EXISTS 热键配置表 (
             配置标识 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,12 +174,31 @@ class 数据库管理器类:
             "ALTER TABLE 操作步骤表 ADD COLUMN 父步骤标识 INTEGER DEFAULT NULL REFERENCES 操作步骤表(步骤标识) ON DELETE CASCADE",
             "ALTER TABLE 操作步骤表 ADD COLUMN 分支类型 TEXT DEFAULT NULL",
             "ALTER TABLE 操作步骤表 ADD COLUMN 引用脚本标识 INTEGER DEFAULT NULL",
+            "ALTER TABLE 脚本表 ADD COLUMN 定时触发类型 TEXT CHECK (定时触发类型 IS NULL OR 定时触发类型 IN ('单次执行', '循环间隔', '每日定时'))",
+            "ALTER TABLE 脚本表 ADD COLUMN 定时触发时间 TEXT",
+            "ALTER TABLE 脚本表 ADD COLUMN 定时循环间隔 INTEGER CHECK (定时循环间隔 IS NULL OR (定时循环间隔 >= 1 AND 定时循环间隔 <= 1440))",
+            "ALTER TABLE 脚本表 ADD COLUMN 定时每日时间 TEXT",
+            "ALTER TABLE 脚本表 ADD COLUMN 定时启用 INTEGER DEFAULT 0 CHECK (定时启用 IN (0, 1))",
         ]
         for SQL in 补丁列表:
             try:
                 连接.execute(SQL)
             except sqlite3.OperationalError:
-                pass  # 列已存在，忽略
+                pass
+        # 迁移定时任务表数据到脚本表
+        try:
+            表列表 = [行[0] for 行 in 连接.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+            if "定时任务表" in 表列表:
+                启用任务 = 连接.execute("SELECT 关联脚本标识, 触发类型, 触发时间, 循环间隔, 每日时间, 启用状态 FROM 定时任务表 WHERE 启用状态 = 1").fetchall()
+                for 任务 in 启用任务:
+                    连接.execute(
+                        """UPDATE 脚本表 SET 定时触发类型 = ?, 定时触发时间 = ?, 定时循环间隔 = ?, 定时每日时间 = ?, 定时启用 = ?
+                        WHERE 脚本标识 = ?""",
+                        (任务[1], 任务[2], 任务[3], 任务[4], 任务[5], 任务[0]),
+                    )
+                连接.execute("DROP TABLE IF EXISTS 定时任务表")
+        except sqlite3.OperationalError:
+            pass  # 列已存在，忽略
 
     def _初始化预置配置(self, 连接: sqlite3.Connection) -> None:
         """初始化预置配置项"""
