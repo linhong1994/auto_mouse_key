@@ -1,9 +1,8 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
-    QMenuBar, QStatusBar, QToolBar,
+    QStatusBar,
 )
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt
 from src.公共.枚举定义 import 运行状态枚举
 from src.公共.日志管理 import 获取日志管理器
 
@@ -21,31 +20,15 @@ class 主窗口类(QMainWindow):
         self.悬浮窗 = None
         self.系统托盘 = None
         self.热键管理器 = None
-        self._菜单动作 = []
         self.日志 = 获取日志管理器("主窗口")
 
     def 初始化界面(self) -> None:
         """初始化主界面布局和各区域组件"""
         self.setWindowTitle("自动操作工具")
         self.setMinimumSize(1000, 600)
-        self.初始化菜单栏()
         self.初始化中央区域()
         self.初始化状态栏()
 
-    def 初始化菜单栏(self) -> None:
-        """初始化菜单栏"""
-        菜单栏 = self.menuBar()
-
-        设置菜单 = 菜单栏.addMenu("设置")
-        热键动作 = QAction("热键设置", self)
-        悬浮窗动作 = QAction("悬浮窗设置", self)
-        设置菜单.addAction(热键动作)
-        设置菜单.addAction(悬浮窗动作)
-
-        self._菜单动作 = [
-            热键动作, 悬浮窗动作,
-        ]
-        self._菜单对象 = [设置菜单]
 
     def 初始化中央区域(self) -> None:
         """初始化中央区域布局：左-脚本列表，右-（控制栏 + 操作列表+详情）"""

@@ -10,6 +10,8 @@ class 执行控制组件类(QWidget):
     停止回放信号 = Signal()
     紧急停止信号 = Signal()
     录制信号 = Signal()
+    热键设置信号 = Signal()
+    悬浮窗设置信号 = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -24,6 +26,14 @@ class 执行控制组件类(QWidget):
     def 初始化界面(self) -> None:
         """初始化界面"""
         布局 = QHBoxLayout(self)
+
+        self.热键设置按钮 = QPushButton("热键设置")
+        self.热键设置按钮.clicked.connect(self.热键设置信号.emit)
+        布局.addWidget(self.热键设置按钮)
+
+        self.悬浮窗设置按钮 = QPushButton("悬浮窗设置")
+        self.悬浮窗设置按钮.clicked.connect(self.悬浮窗设置信号.emit)
+        布局.addWidget(self.悬浮窗设置按钮)
 
         self.回放按钮 = QPushButton("回放")
         self.回放按钮.clicked.connect(self._处理回放)
