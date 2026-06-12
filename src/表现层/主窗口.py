@@ -39,13 +39,11 @@ class 主窗口类(QMainWindow):
         设置菜单 = 菜单栏.addMenu("设置")
         热键动作 = QAction("热键设置", self)
         悬浮窗动作 = QAction("悬浮窗设置", self)
-        定时动作 = QAction("定时任务", self)
         设置菜单.addAction(热键动作)
         设置菜单.addAction(悬浮窗动作)
-        设置菜单.addAction(定时动作)
 
         self._菜单动作 = [
-            热键动作, 悬浮窗动作, 定时动作,
+            热键动作, 悬浮窗动作,
         ]
         self._菜单对象 = [设置菜单]
 

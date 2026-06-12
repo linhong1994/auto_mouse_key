@@ -19,6 +19,7 @@ class 执行引擎类(QObject):
         self.步骤管理服务 = 步骤管理服务
         self.当前状态: 运行状态枚举 = 运行状态枚举.空闲
         self.当前执行脚本标识: int = 0
+        self.定时任务激活: bool = False
         self._订阅者列表: list[Callable] = []
         self.日志 = 获取日志管理器("执行引擎")
         self._连接信号()
@@ -27,6 +28,9 @@ class 执行引擎类(QObject):
         """执行指定脚本"""
         if self.当前状态 != 运行状态枚举.空闲:
             self.日志.warning("当前非空闲状态，无法执行脚本")
+            return
+        if self.定时任务激活:
+            self.日志.warning("定时任务正在运行，无法手动回放脚本")
             return
         if not self.步骤管理服务 or not self.回放控制器:
             return
@@ -87,6 +91,7 @@ class 执行引擎类(QObject):
     def _处理回放完成(self, 成功: bool) -> None:
         """处理回放完成"""
         self.当前执行脚本标识 = 0
+        self.定时任务激活 = False
         self.设置状态(运行状态枚举.空闲 if 成功 else 运行状态枚举.执行失败)
 
     def _生成参数摘要(self, 步骤: 操作步骤数据) -> str:

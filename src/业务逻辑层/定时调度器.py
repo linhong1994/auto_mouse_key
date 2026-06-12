@@ -1,15 +1,21 @@
+from PySide6.QtCore import QObject, Signal
 from src.公共.数据结构 import 定时任务数据
 from src.公共.枚举定义 import 定时触发类型枚举
 from src.公共.日志管理 import 获取日志管理器
 
 
-class 定时调度器类:
+class 定时调度器类(QObject):
     """定时任务调度器"""
 
+    定时激活信号 = Signal(object)    # 定时任务激活时发射，参数为定时任务数据
+    定时停止信号 = Signal()           # 定时任务停止时发射
+
     def __init__(self, 定时任务DAO=None, 执行引擎=None):
+        super().__init__()
         self.定时任务DAO = 定时任务DAO
         self.执行引擎 = 执行引擎
         self.调度器 = None
+        self.当前活动任务: 定时任务数据 | None = None
         self.日志 = 获取日志管理器("定时调度器")
 
     def 启动调度器(self) -> None:
@@ -21,6 +27,9 @@ class 定时调度器类:
                 启用任务 = self.定时任务DAO.查询启用的任务()
                 for 任务 in 启用任务:
                     self._注册任务(任务)
+                # 恢复活动任务状态（全局单任务，取第一个启用任务）
+                if 启用任务:
+                    self.当前活动任务 = 启用任务[0]
             self.调度器.start()
             self.日志.info("定时调度器已启动")
         except Exception as 异常:
@@ -34,11 +43,16 @@ class 定时调度器类:
             self.日志.info("定时调度器已停止")
 
     def 创建任务(self, 任务数据: 定时任务数据) -> int:
-        """创建定时任务"""
+        """创建定时任务（全局单任务，创建前应先清除旧任务）"""
+        # 全局单任务限制：先删除已有的活动任务
+        if self.当前活动任务:
+            self.删除任务(self.当前活动任务.任务标识)
         任务标识 = self.定时任务DAO.插入(任务数据)
         if 任务数据.启用状态:
             任务数据.任务标识 = 任务标识
             self._注册任务(任务数据)
+            self.当前活动任务 = 任务数据
+            self.定时激活信号.emit(任务数据)
         return 任务标识
 
     def 修改任务(self, 任务标识: int, 任务数据: 定时任务数据) -> None:
@@ -75,6 +89,11 @@ class 定时调度器类:
         """删除定时任务"""
         self._注销任务(任务标识)
         self.定时任务DAO.删除(任务标识)
+        if self.当前活动任务 and self.当前活动任务.任务标识 == 任务标识:
+            self.当前活动任务 = None
+            self.定时停止信号.emit()
+            if self.执行引擎:
+                self.执行引擎.定时任务激活 = False
 
     def 查询所有任务(self) -> list[定时任务数据]:
         """查询所有定时任务"""
@@ -129,8 +148,24 @@ class 定时调度器类:
         except Exception:
             pass
 
+    def 停止活动任务(self) -> None:
+        """停止当前活动定时任务"""
+        if self.当前活动任务:
+            self.删除任务(self.当前活动任务.任务标识)
+
+    def 是否有活动任务(self) -> bool:
+        """判断当前是否有活动的定时任务"""
+        return self.当前活动任务 is not None
+
+    def 获取活动任务脚本标识(self) -> int:
+        """获取活动定时任务关联的脚本标识，无活动任务时返回0"""
+        if self.当前活动任务:
+            return self.当前活动任务.关联脚本标识
+        return 0
+
     def _触发任务(self, 任务标识: int, 脚本标识: int) -> None:
         """触发定时任务执行"""
         self.日志.info(f"定时任务{任务标识}触发，执行脚本{脚本标识}")
         if self.执行引擎:
+            self.执行引擎.定时任务激活 = True
             self.执行引擎.执行脚本(脚本标识)

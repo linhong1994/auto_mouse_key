@@ -101,3 +101,9 @@ class 执行控制组件类(QWidget):
             self.回放按钮.setText(f"{self._停止回放键名}停止回放")
         else:
             self.回放按钮.setText(f"{self._回放键名}回放")
+
+    def 设置回放禁用(self, 禁用: bool) -> None:
+        """禁用或启用回放相关控件（定时任务激活时禁用）"""
+        self.回放按钮.setDisabled(禁用)
+        self.速度选择.setDisabled(禁用)
+        self.循环次数.setDisabled(禁用)
